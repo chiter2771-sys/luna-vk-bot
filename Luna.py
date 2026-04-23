@@ -6,10 +6,15 @@ import json
 import os
 import random
 import logging
+import re
+from datetime import datetime, timezone, timedelta
 
 # 🔑
 from config.keys import VK_TOKEN, OPENROUTER_API_KEY
 MODEL = "openai/gpt-4o-mini"
+
+OWNER_IDS = {item.strip() for item in os.getenv("VK_CREATOR_IDS", "236880436").split(",") if item.strip()}
+ROLE_ALIASES = {"user", "mod", "admin", "superadmin", "owner"}
 
 MEMORY_DIR = "memory"
 PROFILE_DIR = "profiles"
@@ -200,14 +205,26 @@ def handle_game(profile, message):
 
 {random.choice(questions)}"""
 
+def extract_vk_id(raw_value):
+    value = raw_value.strip()
+
+    mention_match = re.search(r"(?:id|club)(-?\d+)", value)
+    if mention_match:
+        return mention_match.group(1)
+
+    numeric_match = re.search(r"-?\d+", value)
+    if numeric_match:
+        return numeric_match.group(0)
+
+    return None
+
+
+def is_owner(user_id):
+    return str(user_id) in OWNER_IDS
+
 # 📜 КОМАНДЫ
 def handle_command(user_id, text):
     profile = load_profile(user_id)
-
-    # 🔥 ВАЖНО: сюда свой реальный ID (не группы!)
-    ADMIN_IDS = [236880436]
-
-    is_admin = str(user_id) in ADMIN_IDS
 
     # 📜 HELP
     if text.startswith("/help"):
@@ -222,8 +239,8 @@ def handle_command(user_id, text):
 🎁 /daily — награда
 
 👑 админ:
- /role
- /premium
+ /role <role> <id>
+ /premium <id>
 
 …или просто напиши мне 😏
 """
@@ -280,50 +297,6 @@ def handle_command(user_id, text):
 ✨ +{xp} XP
 
 {msg or ""}"""
-
-    # =========================
-    # 👑 АДМИН КОМАНДЫ
-    # =========================
-
-    # 🎭 ВЫДАЧА РОЛИ
-    if text.startswith("/role"):
-        if not is_admin:
-            return "нет прав 😏"
-
-        try:
-            parts = text.split()
-            role = parts[1]
-            target_id = parts[2].replace("id", "").replace("@", "")
-
-            target = load_profile(target_id)
-            target["role"] = role
-            save_profile(target_id, target)
-
-            return f"роль выдана: {role}"
-
-        except:
-            return "пример: /role admin id123"
-
-    # 💎 ПРЕМИУМ ВКЛ/ВЫКЛ
-    if text.startswith("/premium"):
-        if not is_admin:
-            return "нет прав 😏"
-
-        try:
-            parts = text.split()
-            target_id = parts[1].replace("id", "").replace("@", "")
-
-            target = load_profile(target_id)
-
-            # переключение
-            target["premium"] = not target.get("premium", False)
-
-            save_profile(target_id, target)
-
-            return "премиум обновлён"
-
-        except:
-            return "пример: /premium id123"
 
     return None
 
@@ -502,9 +475,10 @@ def generate_profile_image_html(user_id, profile):
     path = f"{IMAGE_DIR}/profile_{user_id}.png"
 
     with sync_playwright() as p:
-        browser = p.webkit.launch()
+        browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
         page = browser.new_page(viewport={"width": 1100, "height": 450})
         page.set_content(html)
+        page.wait_for_timeout(300)
         page.screenshot(path=path)
         browser.close()
 
@@ -532,7 +506,7 @@ def get_vk_avatar(user_id):
         user = vk.users.get(user_ids=user_id, fields="photo_200")[0]
         url = user["photo_200"]
 
-        img_data = requests.get(url).content
+        img_data = requests.get(url, timeout=15).content
 
         with open(path, "wb") as f:
             f.write(img_data)
@@ -566,19 +540,24 @@ def run_vk_bot():
 
     logging.info("VK бот запущен")
 
-    ADMIN_IDS = ["ТВОЙ_ID"]  # ← ОБЯЗАТЕЛЬНО сюда свой id
-
     for event in longpoll.listen():
         try:
             if event.type == VkEventType.MESSAGE_NEW:
 
-                # 💡 ВАЖНО: теперь работает и в беседе и в лс
+                if getattr(event, "from_me", False):
+                    continue
+
                 user_id = str(event.user_id)
+                if not user_id or user_id.startswith("-"):
+                    continue
+
                 peer_id = event.peer_id
                 text = event.text.strip()
 
-                # 🔥 ПРОВЕРКА АДМИНА (фикс)
-                is_admin = user_id in ADMIN_IDS
+                if not text:
+                    continue
+
+                is_admin = is_owner(user_id)
 
                 # 📜 команды
                 cmd = handle_command(user_id, text)
@@ -602,8 +581,13 @@ def run_vk_bot():
 
                     try:
                         parts = text.split()
-                        role = parts[1]
-                        target_id = parts[2].replace("id", "").replace("@", "")
+                        role = parts[1].lower()
+                        if role not in ROLE_ALIASES:
+                            raise ValueError
+
+                        target_id = extract_vk_id(parts[2])
+                        if not target_id:
+                            raise ValueError
 
                         target = load_profile(target_id)
                         target["role"] = role
@@ -617,7 +601,7 @@ def run_vk_bot():
                     except:
                         vk.messages.send(
                             peer_id=peer_id,
-                            message="пример: /role admin id123",
+                            message="пример: /role admin id123 или /role mod https://vk.com/id123",
                             random_id=random.randint(1, 9999999)
                         )
                     continue
@@ -633,7 +617,9 @@ def run_vk_bot():
 
                     try:
                         parts = text.split()
-                        target_id = parts[1].replace("id", "").replace("@", "")
+                        target_id = extract_vk_id(parts[1])
+                        if not target_id:
+                            raise ValueError
 
                         target = load_profile(target_id)
                         target["premium"] = not target.get("premium", False)
@@ -647,7 +633,7 @@ def run_vk_bot():
                     except:
                         vk.messages.send(
                             peer_id=peer_id,
-                            message="пример: /premium id123",
+                            message="пример: /premium id123 или /premium [id123|user]",
                             random_id=random.randint(1, 9999999)
                         )
                     continue
