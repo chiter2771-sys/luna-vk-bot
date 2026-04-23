@@ -1,0 +1,188 @@
+2026-04-15 23:54:30,882 [INFO] VK бот запущен
+2026-04-16 00:27:01,301 [INFO] VK бот запущен
+2026-04-16 00:37:39,795 [INFO] VK бот запущен
+2026-04-16 03:02:04,499 [INFO] VK бот запущен
+2026-04-16 03:12:50,133 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 323, in run_vk_bot
+    vk.messages.send(
+    ~~~~~~~~~~~~~~~~^
+        user_id=event.user_id,
+        ^^^^^^^^^^^^^^^^^^^^^^
+        message=response,
+        ^^^^^^^^^^^^^^^^^
+        random_id=random.randint(1, 9999999)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Suzuya\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\vk_api\vk_api.py", line 1043, in __call__
+    return self._vk.method(self._method, kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Suzuya\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\vk_api\vk_api.py", line 934, in method
+    raise error
+vk_api.exceptions.ApiError: [901] Can't send messages for users without permission
+2026-04-16 03:13:03,840 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 323, in run_vk_bot
+    vk.messages.send(
+    ~~~~~~~~~~~~~~~~^
+        user_id=event.user_id,
+        ^^^^^^^^^^^^^^^^^^^^^^
+        message=response,
+        ^^^^^^^^^^^^^^^^^
+        random_id=random.randint(1, 9999999)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Suzuya\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\vk_api\vk_api.py", line 1043, in __call__
+    return self._vk.method(self._method, kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Suzuya\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\vk_api\vk_api.py", line 934, in method
+    raise error
+vk_api.exceptions.ApiError: [901] Can't send messages for users without permission
+2026-04-16 03:15:02,198 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 323, in run_vk_bot
+    vk.messages.send(
+    ~~~~~~~~~~~~~~~~^
+        user_id=event.user_id,
+        ^^^^^^^^^^^^^^^^^^^^^^
+        message=response,
+        ^^^^^^^^^^^^^^^^^
+        random_id=random.randint(1, 9999999)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Suzuya\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\vk_api\vk_api.py", line 1043, in __call__
+    return self._vk.method(self._method, kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Suzuya\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\vk_api\vk_api.py", line 934, in method
+    raise error
+vk_api.exceptions.ApiError: [901] Can't send messages for users without permission
+2026-04-16 03:23:53,103 [INFO] VK бот запущен
+2026-04-16 03:24:00,244 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 389, in run_vk_bot
+    profile["coins"] += coins
+    ~~~~~~~^^^^^^^^^
+KeyError: 'coins'
+2026-04-16 03:24:24,667 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 349, in run_vk_bot
+    cmd = handle_command(user_id, text)
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 230, in handle_command
+    🏆 уровень: {profile["level"]}
+                 ~~~~~~~^^^^^^^^^
+KeyError: 'level'
+2026-04-16 03:29:39,481 [INFO] VK бот запущен
+2026-04-16 03:42:02,854 [INFO] VK бот запущен
+2026-04-16 03:47:03,698 [INFO] VK бот запущен
+2026-04-16 03:52:02,774 [INFO] VK бот запущен
+2026-04-16 03:54:33,339 [INFO] VK бот запущен
+2026-04-16 03:57:53,838 [INFO] VK бот запущен
+2026-04-16 04:27:15,403 [INFO] VK бот запущен
+2026-04-16 04:27:27,677 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 580, in run_vk_bot
+    path = generate_profile_image(user_id, profile)
+           ^^^^^^^^^^^^^^^^^^^^^^
+NameError: name 'generate_profile_image' is not defined. Did you mean: 'generate_profile_image_html'?
+2026-04-16 04:31:37,718 [INFO] VK бот запущен
+2026-04-16 04:35:04,308 [INFO] VK бот запущен
+2026-04-16 04:49:01,180 [INFO] VK бот запущен
+2026-04-16 04:59:28,106 [INFO] VK бот запущен
+2026-04-16 04:59:39,217 [ERROR] avatar error: name 'time' is not defined
+2026-04-16 05:03:23,136 [INFO] VK бот запущен
+2026-04-16 05:03:29,177 [ERROR] avatar error: name 'time' is not defined
+2026-04-16 05:12:52,410 [INFO] VK бот запущен
+2026-04-16 05:13:09,598 [ERROR] avatar error: name 'time' is not defined
+2026-04-16 05:22:14,888 [INFO] VK бот запущен
+2026-04-16 05:22:20,809 [ERROR] avatar error: name 'time' is not defined
+2026-04-16 05:22:20,809 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 639, in run_vk_bot
+    path = generate_profile_image_html(user_id, profile)
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 558, in generate_profile_image_html
+    with sync_playwright() as p:
+         ^^^^^^^^^^^^^^^
+NameError: name 'sync_playwright' is not defined
+2026-04-16 05:24:30,999 [INFO] VK бот запущен
+2026-04-16 05:49:18,745 [INFO] VK бот запущен
+2026-04-16 05:51:54,048 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 512, in run_vk_bot
+    path = generate_profile_image_html(user_id, profile)
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 412, in generate_profile_image_html
+    html = html.format(
+        nickname=nickname,
+    ...<12 lines>...
+        premium=premium
+    )
+KeyError: '\n    margin'
+2026-04-16 05:54:34,361 [INFO] VK бот запущен
+2026-04-16 06:03:12,287 [INFO] VK бот запущен
+2026-04-16 06:03:16,605 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 512, in run_vk_bot
+    path = generate_profile_image_html(user_id, profile)
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 412, in generate_profile_image_html
+    html = html.format(
+        nickname=nickname,
+    ...<12 lines>...
+        premium=premium
+    )
+KeyError: '\n    margin'
+2026-04-16 06:21:13,584 [INFO] VK бот запущен
+2026-04-16 06:27:48,641 [INFO] VK бот запущен
+2026-04-16 06:27:56,348 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 518, in run_vk_bot
+    path = generate_profile_image_html(user_id, profile)
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 415, in generate_profile_image_html
+    html = html.format(
+        nickname=nickname,
+    ...<15 lines>...
+        premium=premium
+    )
+KeyError: '\n    margin'
+2026-04-16 06:29:33,953 [INFO] VK бот запущен
+2026-04-16 06:45:24,991 [INFO] VK бот запущен
+2026-04-16 06:45:27,447 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 575, in run_vk_bot
+    path = generate_profile_image_html(user_id, profile)
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 472, in generate_profile_image_html
+    html = html.format(
+        nickname=nickname,
+    ...<15 lines>...
+        premium=premium
+    )
+KeyError: 'premium_color'
+2026-04-16 06:48:23,058 [INFO] VK бот запущен
+2026-04-16 06:48:34,656 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 575, in run_vk_bot
+    text = event.text.strip()
+               ~~~~~~~~~~~~^^
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 472, in generate_profile_image_html
+        premium_icon = "🌑"
+           ^^^^^^^^^^^^^^^^
+    ...<17 lines>...
+        progress_deg=progress_deg,
+    
+KeyError: 'premium_color'
+2026-04-16 06:49:41,346 [ERROR] profile load error: Expecting value: line 1 column 1 (char 0)
+2026-04-16 06:49:43,894 [ERROR] profile load error: Expecting value: line 1 column 1 (char 0)
+2026-04-16 07:02:51,831 [INFO] VK бот запущен
+2026-04-17 06:56:07,979 [INFO] VK бот запущен
+2026-04-17 06:57:02,501 [ERROR] Ошибка в VK loop
+Traceback (most recent call last):
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 586, in run_vk_bot
+    path = generate_profile_image_html(user_id, profile)
+  File "C:\Users\Suzuya\Desktop\Луна поколение 2 версия 2\Luna.py", line 499, in generate_profile_image_html
+    premium_icon=premium_icon,
+                 ^^^^^^^^^^^^
+NameError: name 'premium_icon' is not defined. Did you mean: 'premium_color'?
+2026-04-17 07:05:16,090 [INFO] VK бот запущен
+2026-04-17 07:13:06,182 [INFO] VK бот запущен
+2026-04-24 04:24:41,353 [INFO] VK бот запущен

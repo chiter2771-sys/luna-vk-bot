@@ -1,0 +1,225 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+
+body {{
+    margin: 0;
+    width: 1100px;
+    height: 450px;
+    font-family: Arial;
+    color: white;
+    background: linear-gradient(180deg, #1a1a1a, #0b0c14);
+}}
+
+.title {{
+    text-align: center;
+    font-size: 34px;
+    margin-top: 10px;
+    letter-spacing: 2px;
+    color: #eaeaea;
+}}
+
+.container {{
+    display: grid;
+    grid-template-columns: 230px 1fr 370px;
+    gap: 20px;
+    padding: 15px 25px;
+}}
+
+.side {{
+    background: #121212;
+    border-radius: 20px;
+    padding: 20px;
+}}
+
+.item {{
+    margin-bottom: 22px;
+}}
+
+.small {{
+    font-size: 13px;
+    color: #aaa;
+}}
+
+.value {{
+    font-size: 20px;
+}}
+
+.center-card {{
+    background: #151515;
+    border-radius: 25px;
+    padding: 20px;
+    text-align: center;
+}}
+
+.avatar-wrap {{
+    position: relative;
+    width: 130px;
+    height: 130px;
+    margin: auto;
+}}
+
+.avatar {{
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    border: 3px solid {glow_color};
+}}
+
+.level-ring {{
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 6px solid rgba(255,255,255,0.05);
+    border-top: 6px solid {glow_color};
+    transform: rotate(calc({progress_deg}deg - 90deg));
+}}
+
+.level-badge {{
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: #e0e0e0;
+    color: black;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}}
+
+.nickname {{
+    margin-top: 10px;
+    font-size: 18px;
+}}
+
+.role {{
+    margin-top: 8px;
+    padding: 6px 14px;
+    border-radius: 12px;
+    background: #222;
+    display: inline-block;
+    font-size: 14px;
+}}
+
+.progress {{
+    margin-top: 15px;
+    height: 8px;
+    background: #2a2a2a;
+    border-radius: 10px;
+    overflow: hidden;
+}}
+
+.progress-bar {{
+    height: 8px;
+    width: {progress}%;
+    background: linear-gradient(90deg, {glow_color}, #ffffff);
+}}
+
+.premium-panel {{
+    background: #121212;
+    border-radius: 25px;
+    padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    box-shadow: 0 0 40px rgba(100,120,255,0.15);
+}}
+
+.premium-title {{
+    font-size: 18px;
+    color: #888;
+}}
+
+/* 🔥 КОРОНА С МЕСЯЦЕМ */
+.crown {{
+    position: relative;
+    font-size: 110px;
+    color: {premium_color};
+    text-shadow: 0 0 25px {premium_color};
+}}
+
+.crown::after {{
+    content: "☾";
+    position: absolute;
+    font-size: 40px;
+    top: 35px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #0b0c14;
+}}
+
+.premium-status {{
+    font-size: 22px;
+    color: {premium_color};
+}}
+
+.xp {{
+    margin-top: 12px;
+    font-size: 15px;
+    color: #aaa;
+}}
+
+</style>
+</head>
+
+<body>
+
+<div class="title">СТАТИСТИКА</div>
+
+<div class="container">
+
+<div class="side">
+    <div class="item">
+        <div class="small">Сообщения</div>
+        <div class="value">{messages}</div>
+    </div>
+
+    <div class="item">
+        <div class="small">Лунные монетки</div>
+        <div class="value">{coins}</div>
+    </div>
+
+    <div class="item">
+        <div class="small">Дата регистрации</div>
+        <div class="value">{reg_date}</div>
+    </div>
+</div>
+
+<div class="center-card">
+    <div class="avatar-wrap">
+        <div class="level-ring"></div>
+        <img class="avatar" src="{avatar_url}">
+        <div class="level-badge">{level}</div>
+    </div>
+
+    <div class="nickname">{nickname}</div>
+    <div class="role">{role}</div>
+
+    <div class="progress">
+        <div class="progress-bar"></div>
+    </div>
+</div>
+
+<div class="premium-panel">
+
+    <div class="premium-title">ПРЕМИУМ</div>
+
+    <div class="crown">♛</div>
+
+    <div class="premium-status">{premium}</div>
+
+    <div class="xp">{xp}/{max_xp}</div>
+
+</div>
+
+</div>
+
+</body>
+</html>
