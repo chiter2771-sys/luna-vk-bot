@@ -471,22 +471,22 @@ def _draw_crown(draw: ImageDraw.ImageDraw, x: int, y: int, w: int, h: int, fill=
 
 
 def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
-    # Вертикально-горизонтальный баннер (не квадрат), лучше для VK превью.
-    width, height = 1280, 720
+    # Компактная карточка 16:9 как в референсе (не огромная в чате).
+    width, height = 960, 540
+    scale = width / 1280
+    s = lambda x: int(x * scale)
     path = f"{IMAGE_DIR}/profile_{user_id}.png"
 
     img = Image.new("RGB", (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(img)
-    _draw_card(draw, width, height)
+    font_title = _safe_font(s(72), bold=True)
+    font_name = _safe_font(s(50), bold=True)
+    font_sub = _safe_font(s(36), bold=True)
+    font_text = _safe_font(s(42))
+    font_micro = _safe_font(s(24))
 
-    font_title = _safe_font(72, bold=True)
-    font_name = _safe_font(50, bold=True)
-    font_sub = _safe_font(36, bold=True)
-    font_text = _safe_font(42)
-    font_micro = _safe_font(24)
-
-    avatar_size = 180
-    avatar_x, avatar_y = 550, 145
+    avatar_size = s(180)
+    avatar_x, avatar_y = s(550), s(145)
     avatar_blob = get_vk_avatar_bytes(vk, user_id)
 
     avatar = Image.new("RGB", (avatar_size, avatar_size), (64, 71, 95))
@@ -517,74 +517,86 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
     need = max(100, level * 100)
     progress = max(0.0, min(1.0, xp / need))
 
-    # Более чистый современный стиль как в референсе
+    # Если шрифт не поддерживает кириллицу, используем латиницу (без квадратиков).
+    cyr_ok = _safe_font(24).getmask("Статистика").getbbox() is not None
+    label_stats = "СТАТИСТИКА" if cyr_ok else "STATISTICS"
+    label_msgs = "Сообщений" if cyr_ok else "Messages"
+    label_coins = "Star-монетки" if cyr_ok else "Star-coins"
+    label_last = "Посл. активность" if cyr_ok else "Last active"
+    label_rep = "Репутация" if cyr_ok else "Reputation"
+    label_league = "ЛИГА" if cyr_ok else "LEAGUE"
+    label_xp = "ОПЫТ" if cyr_ok else "XP"
+    league_value = "Бронза" if cyr_ok else "Bronze"
+    premium_label = "Премиум" if cyr_ok else "Premium"
+    premium_value = "АКТИВЕН" if premium == "Да" else ("ОТСУТСТВУЕТ" if cyr_ok else "MISSING")
+
     draw.rectangle((0, 0, width, height), fill=(46, 46, 46))
 
     # Блоки
-    left_box = (28, 132, 302, 648)
-    center_box = (335, 230, 945, 648)
-    right_box = (968, 132, 1248, 648)
+    left_box = (s(28), s(132), s(302), s(648))
+    center_box = (s(335), s(230), s(945), s(648))
+    right_box = (s(968), s(132), s(1248), s(648))
     draw.rounded_rectangle(left_box, radius=30, fill=(29, 31, 35))
     draw.rounded_rectangle(center_box, radius=30, fill=(31, 33, 38))
     draw.rounded_rectangle(right_box, radius=30, fill=(29, 31, 35))
 
     # Заголовок
-    draw.text((438, 40), "СТАТИСТИКА", font=font_title, fill=(244, 245, 247))
+    draw.text((s(438), s(40)), label_stats, font=font_title, fill=(244, 245, 247))
 
     # Левый столб
     stats_lines = [
-        ("Сообщений", str(profile.get("messages", 0)), (240, 240, 240)),
-        ("Star-монетки", str(profile.get("coins", 0)), (240, 240, 240)),
-        ("Посл. активность", datetime.now(MSK_TZ).strftime("%d.%m.%Y"), (240, 240, 240)),
-        ("Репутация", f"+{profile.get('wins', 0)} (#{max(1, 2500 - profile.get('wins', 0))})", (175, 216, 160)),
+        (label_msgs, str(profile.get("messages", 0)), (240, 240, 240)),
+        (label_coins, str(profile.get("coins", 0)), (240, 240, 240)),
+        (label_last, datetime.now(MSK_TZ).strftime("%d.%m.%Y"), (240, 240, 240)),
+        (label_rep, f"+{profile.get('wins', 0)} (#{max(1, 2500 - profile.get('wins', 0))})", (175, 216, 160)),
     ]
-    y = 170
+    y = s(170)
     for title, value, color in stats_lines:
-        draw.text((108, y), title, font=font_micro, fill=(134, 137, 144))
-        draw.text((108, y + 34), value, font=font_sub, fill=color)
-        y += 115
+        draw.text((s(108), y), title, font=font_micro, fill=(134, 137, 144))
+        draw.text((s(108), y + s(34)), value, font=font_sub, fill=color)
+        y += s(115)
 
     # Простые иконки слева
-    draw.ellipse((48, 178, 92, 222), outline=(240, 240, 240), width=4)
-    draw.line((57, 200, 84, 200), fill=(240, 240, 240), width=4)
-    draw.ellipse((49, 278, 91, 320), outline=(240, 240, 240), width=4)
-    draw.polygon([(70, 286), (76, 300), (92, 300), (79, 309), (84, 323), (70, 314), (56, 323), (61, 309), (48, 300), (64, 300)], outline=(240, 240, 240))
-    draw.rectangle((50, 394, 90, 436), outline=(240, 240, 240), width=4)
-    draw.rectangle((56, 384, 63, 394), fill=(240, 240, 240))
-    draw.rectangle((77, 384, 84, 394), fill=(240, 240, 240))
-    draw.rectangle((50, 510, 90, 554), outline=(240, 240, 240), width=4)
-    draw.ellipse((60, 520, 80, 540), outline=(240, 240, 240), width=3)
+    draw.ellipse((s(48), s(178), s(92), s(222)), outline=(240, 240, 240), width=3)
+    draw.line((s(57), s(200), s(84), s(200)), fill=(240, 240, 240), width=3)
+    draw.ellipse((s(49), s(278), s(91), s(320)), outline=(240, 240, 240), width=3)
+    draw.polygon([(s(70), s(286)), (s(76), s(300)), (s(92), s(300)), (s(79), s(309)), (s(84), s(323)), (s(70), s(314)), (s(56), s(323)), (s(61), s(309)), (s(48), s(300)), (s(64), s(300))], outline=(240, 240, 240))
+    draw.rectangle((s(50), s(394), s(90), s(436)), outline=(240, 240, 240), width=3)
+    draw.rectangle((s(56), s(384), s(63), s(394)), fill=(240, 240, 240))
+    draw.rectangle((s(77), s(384), s(84), s(394)), fill=(240, 240, 240))
+    draw.rectangle((s(50), s(510), s(90), s(554)), outline=(240, 240, 240), width=3)
+    draw.ellipse((s(60), s(520), s(80), s(540)), outline=(240, 240, 240), width=2)
 
     # Центральная часть: аватар + круг прогресса + уровень
-    ring_center = (640, 238)
-    ring_radius = 96
+    ring_center = (s(640), s(238))
+    ring_radius = s(96)
     draw.ellipse((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), fill=(33, 35, 40), outline=(26, 28, 32), width=6)
     draw.arc((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), start=-90, end=-90 + int(360 * progress), fill=(67, 81, 255), width=10)
     img.paste(avatar, (avatar_x, avatar_y), mask)
-    draw.ellipse((697, 150, 782, 235), fill=(225, 226, 230))
-    draw.text((721, 173), str(level), font=font_sub, fill=(67, 69, 73))
+    draw.ellipse((s(697), s(150), s(782), s(235)), fill=(225, 226, 230))
+    draw.text((s(721), s(173)), str(level), font=font_sub, fill=(67, 69, 73))
 
     # Микро-карточки
-    draw.rounded_rectangle((350, 245, 490, 320), radius=12, fill=(44, 47, 54))
-    draw.text((390, 252), "ЛИГА", font=font_micro, fill=(240, 240, 240))
-    draw.text((372, 286), "Бронза", font=font_sub, fill=(240, 240, 240))
-    draw.line((350, 255, 350, 312), fill=(67, 81, 255), width=5)
+    draw.rounded_rectangle((s(350), s(245), s(490), s(320)), radius=10, fill=(44, 47, 54))
+    draw.text((s(390), s(252)), label_league, font=font_micro, fill=(240, 240, 240))
+    draw.text((s(372), s(286)), league_value, font=font_sub, fill=(240, 240, 240))
+    draw.line((s(350), s(255), s(350), s(312)), fill=(67, 81, 255), width=4)
 
-    draw.rounded_rectangle((790, 245, 930, 320), radius=12, fill=(44, 47, 54))
-    draw.text((825, 252), "ОПЫТ", font=font_micro, fill=(240, 240, 240))
-    draw.text((836, 286), str(xp), font=font_sub, fill=(240, 240, 240))
-    draw.line((930, 255, 930, 312), fill=(67, 81, 255), width=5)
+    draw.rounded_rectangle((s(790), s(245), s(930), s(320)), radius=10, fill=(44, 47, 54))
+    draw.text((s(825), s(252)), label_xp, font=font_micro, fill=(240, 240, 240))
+    draw.text((s(836), s(286)), str(xp), font=font_sub, fill=(240, 240, 240))
+    draw.line((s(930), s(255), s(930), s(312)), fill=(67, 81, 255), width=4)
 
     # Имя и роль
-    draw.text((505, 362), name, font=font_name, fill=(244, 245, 247))
-    draw.rounded_rectangle((358, 560, 920, 610), radius=14, outline=(114, 118, 124), width=3, fill=(31, 33, 38))
-    draw.text((470, 568), group_role, font=font_text, fill=(241, 243, 246))
-    draw.rounded_rectangle((455, 640, 823, 648), radius=4, fill=(67, 81, 255))
+    draw.text((s(505), s(362)), name, font=font_name, fill=(244, 245, 247))
+    draw.rounded_rectangle((s(358), s(560), s(920), s(610)), radius=10, outline=(114, 118, 124), width=2, fill=(31, 33, 38))
+    draw.text((s(470), s(568)), group_role, font=font_text, fill=(241, 243, 246))
+    draw.rounded_rectangle((s(455), s(640), s(823), s(648)), radius=3, fill=(67, 81, 255))
 
     # Правый блок премиум
-    draw.text((1020, 185), "Премиум", font=font_name, fill=(112, 115, 122))
-    _draw_crown(draw, 1028, 310, 165, 120, fill=(96, 100, 110))
-    draw.text((987, 510), "АКТИВЕН" if premium == "Да" else "ОТСУТСТВУЕТ", font=font_sub, fill=(112, 115, 122))
+    draw.text((s(1020), s(185)), premium_label, font=font_name, fill=(112, 115, 122))
+    _draw_crown(draw, s(1028), s(310), s(165), s(120), fill=(96, 100, 110))
+    draw.text((s(987), s(510)), premium_value, font=font_sub, fill=(112, 115, 122))
 
     # Звездочки декора
     stars = 2 + min(8, level // 20)
@@ -698,6 +710,37 @@ def handle_active_game(profile: dict, text: str) -> str | None:
 
     return None
 
+    if state.get("type") == "guess_number":
+        try:
+            guess = int(text)
+        except ValueError:
+            return "Напиши число от 1 до 100."
+
+        state["attempts"] += 1
+        hidden = state["number"]
+        if guess == hidden:
+            profile["game_state"] = None
+            profile["games_played"] += 1
+            profile["wins"] += 1
+            coin = random.randint(5, 10)
+            xp = random.randint(4, 8)
+            up = give_reward(profile, coins=coin, xp=xp)
+            return f"✅ Угадал за {state['attempts']} попыток! +{coin} монет, +{xp} XP\n{up or ''}".strip()
+
+        return "⬆️ Больше" if guess < hidden else "⬇️ Меньше"
+
+    if state.get("type") == "quiz":
+        answer = (text or "").strip().lower()
+        ok = answer == state.get("answer")
+        profile["game_state"] = None
+        profile["games_played"] += 1
+        if ok:
+            profile["wins"] += 1
+            coin = random.randint(4, 8)
+            xp = random.randint(4, 7)
+            up = give_reward(profile, coins=coin, xp=xp)
+            return f"🧠 Верно! +{coin} монет, +{xp} XP\n{up or ''}".strip()
+        return f"❌ Неверно. Правильный ответ: {state.get('answer')}"
 
 def play_dice(profile: dict) -> str:
     user = random.randint(1, 6)
