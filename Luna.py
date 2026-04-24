@@ -9,8 +9,9 @@ import logging
 import re
 from datetime import datetime, timezone, timedelta
 
-# 🔑
-from config.keys import VK_TOKEN, OPENROUTER_API_KEY
+# 🔑 (Railway-friendly: tokens from environment variables)
+VK_TOKEN = os.getenv("VK_TOKEN", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 MODEL = "openai/gpt-4o-mini"
 
 OWNER_IDS = {item.strip() for item in os.getenv("VK_CREATOR_IDS", "236880436").split(",") if item.strip()}
@@ -333,6 +334,9 @@ def build_prompt(profile):
 # 🤖 AI
 async def get_ai_response(user_id, message):
     try:
+        if not OPENROUTER_API_KEY:
+            return "⚠️ Не настроен OPENROUTER_API_KEY."
+
         profile = load_profile(user_id)
         profile = update_mood(profile)
         save_profile(user_id, profile)
@@ -534,6 +538,9 @@ def send_photo(vk, peer_id, file_path):
 
 # 💬 VK BOT
 def run_vk_bot():
+    if not VK_TOKEN:
+        raise RuntimeError("VK_TOKEN is empty. Set VK_TOKEN in environment variables.")
+
     vk_session = vk_api.VkApi(token=VK_TOKEN)
     vk = vk_session.get_api()
     longpoll = VkLongPoll(vk_session)
