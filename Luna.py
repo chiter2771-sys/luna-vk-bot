@@ -710,6 +710,37 @@ def handle_active_game(profile: dict, text: str) -> str | None:
 
     return None
 
+    if state.get("type") == "guess_number":
+        try:
+            guess = int(text)
+        except ValueError:
+            return "Напиши число от 1 до 100."
+
+        state["attempts"] += 1
+        hidden = state["number"]
+        if guess == hidden:
+            profile["game_state"] = None
+            profile["games_played"] += 1
+            profile["wins"] += 1
+            coin = random.randint(5, 10)
+            xp = random.randint(4, 8)
+            up = give_reward(profile, coins=coin, xp=xp)
+            return f"✅ Угадал за {state['attempts']} попыток! +{coin} монет, +{xp} XP\n{up or ''}".strip()
+
+        return "⬆️ Больше" if guess < hidden else "⬇️ Меньше"
+
+    if state.get("type") == "quiz":
+        answer = (text or "").strip().lower()
+        ok = answer == state.get("answer")
+        profile["game_state"] = None
+        profile["games_played"] += 1
+        if ok:
+            profile["wins"] += 1
+            coin = random.randint(4, 8)
+            xp = random.randint(4, 7)
+            up = give_reward(profile, coins=coin, xp=xp)
+            return f"🧠 Верно! +{coin} монет, +{xp} XP\n{up or ''}".strip()
+        return f"❌ Неверно. Правильный ответ: {state.get('answer')}"
 
 def play_dice(profile: dict) -> str:
     user = random.randint(1, 6)
