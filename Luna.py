@@ -28,6 +28,7 @@ AVATAR_DIR = "avatars"
 IMAGE_DIR = "images"
 LOG_FILE = "luna.log"
 BOT_STATE_PATH = "bot_state.json"
+PROFILE_CACHE_TTL = 180
 
 for path in (MEMORY_DIR, PROFILE_DIR, AVATAR_DIR, IMAGE_DIR):
     os.makedirs(path, exist_ok=True)
@@ -129,6 +130,8 @@ def load_profile(user_id: str) -> dict:
         "last_daily": 0,
         "game_state": None,
         "reg_date": datetime.now(MSK_TZ).strftime("%Y-%m-%d"),
+        "display_name": None,
+        "display_name_updated_at": 0,
     }
     path = get_profile_path(user_id)
     if not os.path.exists(path):
@@ -369,6 +372,27 @@ def get_vk_avatar_bytes(vk, user_id: str) -> bytes | None:
         return None
 
 
+def get_display_name(vk, user_id: str, profile: dict) -> str:
+    cached_name = (profile.get("display_name") or "").strip()
+    updated_at = int(profile.get("display_name_updated_at") or 0)
+
+    if cached_name and now_ts() - updated_at < 24 * 3600:
+        return cached_name
+
+    try:
+        user = vk.users.get(user_ids=user_id, fields="first_name,last_name")[0]
+        name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+        if name:
+            profile["display_name"] = name
+            profile["display_name_updated_at"] = now_ts()
+            save_profile(user_id, profile)
+            return name
+    except Exception:
+        logging.exception("display name load error")
+
+    return cached_name or f"id{user_id}"
+
+
 def _safe_font(size: int):
     font_candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -411,6 +435,20 @@ def _draw_star(draw: ImageDraw.ImageDraw, x: int, y: int, size: int = 10, color=
     )
 
 
+def _draw_crown(draw: ImageDraw.ImageDraw, x: int, y: int, w: int, h: int, fill=(90, 95, 106)):
+    points = [
+        (x, y + h),
+        (x + int(w * 0.12), y + int(h * 0.35)),
+        (x + int(w * 0.35), y + int(h * 0.7)),
+        (x + int(w * 0.5), y + int(h * 0.2)),
+        (x + int(w * 0.65), y + int(h * 0.7)),
+        (x + int(w * 0.88), y + int(h * 0.35)),
+        (x + w, y + h),
+    ]
+    draw.polygon(points, fill=fill)
+    draw.rounded_rectangle((x + 12, y + h + 12, x + w - 12, y + h + 42), radius=8, fill=fill)
+
+
 def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
     # Вертикально-горизонтальный баннер (не квадрат), лучше для VK превью.
     width, height = 1280, 720
@@ -424,7 +462,6 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
     font_name = _safe_font(50)
     font_sub = _safe_font(36)
     font_text = _safe_font(42)
-    font_small = _safe_font(34)
     font_micro = _safe_font(24)
 
     avatar_size = 180
@@ -442,11 +479,7 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
     mask = Image.new("L", (avatar_size, avatar_size), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, avatar_size, avatar_size), fill=255)
 
-    try:
-        u = vk.users.get(user_ids=user_id, fields="first_name,last_name")[0]
-        name = f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or f"id{user_id}"
-    except Exception:
-        name = f"id{user_id}"
+    name = get_display_name(vk, user_id, profile)
 
     role = profile.get("role", "user")
     group_role_map = {
@@ -469,10 +502,10 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
     # Левый блок
     draw.rounded_rectangle((30, 130, 300, 650), radius=30, fill=(24, 28, 42))
     left_rows = [
-        ("💬", "Сообщений", str(profile.get("messages", 0))),
-        ("⭐", "Star-монетки", str(profile.get("coins", 0))),
-        ("📅", "Посл. активность", datetime.now(MSK_TZ).strftime("%d.%m.%Y")),
-        ("🏆", "Репутация", f"+{profile.get('wins', 0)} (#{max(1, 2500 - profile.get('wins', 0))})"),
+        ("MSG", "Сообщений", str(profile.get("messages", 0))),
+        ("COIN", "Star-монетки", str(profile.get("coins", 0))),
+        ("DATE", "Посл. активность", datetime.now(MSK_TZ).strftime("%d.%m.%Y")),
+        ("REP", "Репутация", f"+{profile.get('wins', 0)} (#{max(1, 2500 - profile.get('wins', 0))})"),
     ]
     y = 165
     for icon, title, value in left_rows:
@@ -513,7 +546,7 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
     # Правый блок премиума
     draw.rounded_rectangle((985, 130, 1250, 650), radius=30, fill=(24, 28, 42))
     draw.text((1035, 185), "Премиум", font=font_name, fill=(112, 115, 125))
-    draw.text((1035, 330), "👑", font=_safe_font(120), fill=(90, 95, 106))
+    _draw_crown(draw, 1048, 292, 150, 120, fill=(90, 95, 106))
     draw.text((1000, 480), "АКТИВЕН" if premium == "Да" else "ОТСУТСТВУЕТ", font=font_sub, fill=(112, 115, 125))
 
     # Звезды по уровню
@@ -790,6 +823,13 @@ def run_vk_bot():
                 continue
 
             if cmd == "/profile":
+                cached_path = f"{IMAGE_DIR}/profile_{user_id}.png"
+                cached_fresh = os.path.exists(cached_path) and (time.time() - os.path.getmtime(cached_path) < PROFILE_CACHE_TTL)
+
+                if cached_fresh:
+                    send_photo(vk_session, peer_id, cached_path)
+                    continue
+
                 path = generate_profile_image(user_id, profile, vk)
                 if path and os.path.exists(path):
                     send_photo(vk_session, peer_id, path)
