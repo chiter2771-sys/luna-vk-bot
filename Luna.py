@@ -311,19 +311,29 @@ def get_top_users() -> str:
 
 
 def build_profile_text(user_id: str, profile: dict) -> str:
-    premium = "да" if profile.get("premium") else "нет"
+    premium = "✅ Есть" if profile.get("premium") else "❌ Нет"
+    role = profile.get("role", "user")
+    group_role_map = {
+        "owner": "Администратор",
+        "superadmin": "Администратор",
+        "admin": "Администратор",
+        "mod": "Модератор",
+        "user": "Обычный пользователь",
+    }
+    group_role = group_role_map.get(role, "Обычный пользователь")
     return (
-        "📊 Профиль\n\n"
-        f"👤 id{user_id}\n"
-        f"🎭 Роль: {profile.get('role', 'user')}\n"
-        f"⭐ Уровень: {profile.get('level', 1)}\n"
-        f"✨ XP: {profile.get('xp', 0)}/{profile.get('level', 1) * 100}\n"
-        f"💰 Монеты: {profile.get('coins', 0)}\n"
-        f"🏅 Победы: {profile.get('wins', 0)}\n"
-        f"💬 Сообщения: {profile.get('messages', 0)}\n"
-        f"🎮 Игр сыграно: {profile.get('games_played', 0)}\n"
-        f"💎 Премиум: {premium}\n"
-        f"🗓 Регистрация: {profile.get('reg_date', 'неизвестно')}"
+        "🌙✨ **ПРОФИЛЬ ЛУНЫ** ✨🌙\n\n"
+        f"🆔 **ID:** id{user_id}\n"
+        f"🏷 **Кастомная роль:** ЗГС АП\n"
+        f"🛡 **Роль группы:** {group_role}\n"
+        f"⭐ **Уровень:** {profile.get('level', 1)}\n"
+        f"🧪 **Опыт:** {profile.get('xp', 0)}/{profile.get('level', 1) * 100}\n"
+        f"🪙 **Star-монетки:** {profile.get('coins', 0)}\n"
+        f"🏆 **Победы:** {profile.get('wins', 0)}\n"
+        f"💬 **Сообщения:** {profile.get('messages', 0)}\n"
+        f"🎮 **Игр сыграно:** {profile.get('games_played', 0)}\n"
+        f"💎 **Премиум:** {premium}\n"
+        f"📅 **Регистрация:** {profile.get('reg_date', 'неизвестно')}"
     )
 
 
@@ -385,22 +395,40 @@ def _draw_card(draw: ImageDraw.ImageDraw, width: int, height: int):
     draw.rounded_rectangle((30, 30, width - 30, height - 30), radius=40, fill=(11, 16, 30), outline=(93, 108, 255), width=3)
 
 
+def _draw_star(draw: ImageDraw.ImageDraw, x: int, y: int, size: int = 10, color=(255, 245, 188)):
+    draw.polygon(
+        [
+            (x, y - size),
+            (x + size // 3, y - size // 3),
+            (x + size, y),
+            (x + size // 3, y + size // 3),
+            (x, y + size),
+            (x - size // 3, y + size // 3),
+            (x - size, y),
+            (x - size // 3, y - size // 3),
+        ],
+        fill=color,
+    )
+
+
 def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
-    # 1024x1024 читается и на телефоне, и на ПК
-    width, height = 1024, 1024
+    # Вертикально-горизонтальный баннер (не квадрат), лучше для VK превью.
+    width, height = 1280, 720
     path = f"{IMAGE_DIR}/profile_{user_id}.png"
 
     img = Image.new("RGB", (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(img)
     _draw_card(draw, width, height)
 
-    font_title = _safe_font(56)
-    font_sub = _safe_font(34)
-    font_text = _safe_font(30)
-    font_small = _safe_font(26)
+    font_title = _safe_font(72)
+    font_name = _safe_font(50)
+    font_sub = _safe_font(36)
+    font_text = _safe_font(42)
+    font_small = _safe_font(34)
+    font_micro = _safe_font(24)
 
-    avatar_size = 250
-    avatar_x, avatar_y = 70, 130
+    avatar_size = 180
+    avatar_x, avatar_y = 550, 145
     avatar_blob = get_vk_avatar_bytes(vk, user_id)
 
     avatar = Image.new("RGB", (avatar_size, avatar_size), (64, 71, 95))
@@ -413,7 +441,6 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
 
     mask = Image.new("L", (avatar_size, avatar_size), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, avatar_size, avatar_size), fill=255)
-    img.paste(avatar, (avatar_x, avatar_y), mask)
 
     try:
         u = vk.users.get(user_ids=user_id, fields="first_name,last_name")[0]
@@ -422,34 +449,81 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
         name = f"id{user_id}"
 
     role = profile.get("role", "user")
+    group_role_map = {
+        "owner": "Администратор",
+        "superadmin": "Администратор",
+        "admin": "Администратор",
+        "mod": "Модератор",
+        "user": "Обычный пользователь",
+    }
+    group_role = group_role_map.get(role, "Обычный пользователь")
     premium = "Да" if profile.get("premium") else "Нет"
     level = profile.get("level", 1)
     xp = profile.get("xp", 0)
     need = max(100, level * 100)
     progress = max(0.0, min(1.0, xp / need))
 
-    draw.text((360, 135), name, font=font_title, fill=(236, 240, 255))
-    draw.text((360, 205), f"Роль: {role}  •  Премиум: {premium}", font=font_sub, fill=(188, 198, 255))
+    # Заголовок
+    draw.text((420, 40), "СТАТИСТИКА", font=font_title, fill=(245, 248, 255))
 
-    bar_x1, bar_y1, bar_x2, bar_y2 = 360, 285, 930, 335
-    draw.rounded_rectangle((bar_x1, bar_y1, bar_x2, bar_y2), radius=24, fill=(38, 48, 82))
-    draw.rounded_rectangle((bar_x1, bar_y1, int(bar_x1 + (bar_x2 - bar_x1) * progress), bar_y2), radius=24, fill=(103, 122, 255))
-    draw.text((360, 350), f"Уровень {level} | XP {xp}/{need}", font=font_text, fill=(223, 228, 255))
-
-    stats = [
-        f"💰 Монеты: {profile.get('coins', 0)}",
-        f"🏅 Победы: {profile.get('wins', 0)}",
-        f"💬 Сообщения: {profile.get('messages', 0)}",
-        f"🎮 Игр сыграно: {profile.get('games_played', 0)}",
-        f"🗓 Регистрация: {profile.get('reg_date', 'неизвестно')}",
+    # Левый блок
+    draw.rounded_rectangle((30, 130, 300, 650), radius=30, fill=(24, 28, 42))
+    left_rows = [
+        ("💬", "Сообщений", str(profile.get("messages", 0))),
+        ("⭐", "Star-монетки", str(profile.get("coins", 0))),
+        ("📅", "Посл. активность", datetime.now(MSK_TZ).strftime("%d.%m.%Y")),
+        ("🏆", "Репутация", f"+{profile.get('wins', 0)} (#{max(1, 2500 - profile.get('wins', 0))})"),
     ]
+    y = 165
+    for icon, title, value in left_rows:
+        draw.text((55, y), icon, font=font_text, fill=(240, 244, 255))
+        draw.text((115, y + 3), title, font=font_micro, fill=(140, 145, 165))
+        draw.text((115, y + 36), value, font=font_sub, fill=(239, 244, 255))
+        y += 120
 
-    sx, sy = 80, 460
-    draw.rounded_rectangle((65, 445, 960, 910), radius=28, fill=(17, 25, 44), outline=(67, 88, 190), width=2)
-    for i, line in enumerate(stats):
-        draw.text((sx, sy + i * 82), line, font=font_text if i < 4 else font_small, fill=(227, 232, 255))
+    # Центральная карточка
+    draw.rounded_rectangle((335, 225, 955, 650), radius=30, fill=(28, 31, 40))
 
-    draw.text((70, 50), "LUNA PROFILE", font=font_small, fill=(140, 157, 255))
+    # Кольцо уровня
+    ring_center = (640, 235)
+    ring_radius = 112
+    draw.ellipse((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), fill=(26, 30, 40), outline=(44, 49, 58), width=12)
+    draw.arc((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), start=-90, end=-90 + int(360 * progress), fill=(76, 88, 255), width=12)
+
+    # Аватар и номер уровня
+    img.paste(avatar, (avatar_x, avatar_y), mask)
+    draw.ellipse((710, 115, 790, 195), fill=(228, 230, 235))
+    draw.text((732, 132), str(level), font=font_sub, fill=(55, 58, 66))
+
+    # Ник + кастомная роль + групповая роль
+    draw.text((505, 345), name, font=font_name, fill=(241, 245, 255))
+    draw.text((588, 405), "ЗГС АП", font=font_sub, fill=(238, 241, 255))
+    draw.rounded_rectangle((375, 475, 915, 535), radius=16, outline=(84, 200, 94), width=3, fill=(39, 44, 53))
+    draw.text((495, 485), group_role, font=font_text, fill=(241, 245, 255))
+    draw.rounded_rectangle((450, 600, 850, 610), radius=5, fill=(73, 83, 255))
+
+    # Мини-блоки лига и опыт
+    draw.rounded_rectangle((345, 245, 490, 320), radius=12, fill=(34, 38, 45))
+    draw.text((385, 252), "ЛИГА", font=font_micro, fill=(245, 248, 255))
+    draw.text((367, 286), "Бронза", font=font_sub, fill=(245, 248, 255))
+    draw.rounded_rectangle((800, 245, 945, 320), radius=12, fill=(34, 38, 45))
+    draw.text((836, 252), "ОПЫТ", font=font_micro, fill=(245, 248, 255))
+    draw.text((840, 286), str(xp), font=font_sub, fill=(245, 248, 255))
+
+    # Правый блок премиума
+    draw.rounded_rectangle((985, 130, 1250, 650), radius=30, fill=(24, 28, 42))
+    draw.text((1035, 185), "Премиум", font=font_name, fill=(112, 115, 125))
+    draw.text((1035, 330), "👑", font=_safe_font(120), fill=(90, 95, 106))
+    draw.text((1000, 480), "АКТИВЕН" if premium == "Да" else "ОТСУТСТВУЕТ", font=font_sub, fill=(112, 115, 125))
+
+    # Звезды по уровню
+    if level >= 10:
+        stars = min(10, 1 + level // 15)
+        for _ in range(stars):
+            sx = random.randint(20, width - 20)
+            sy = random.randint(20, height - 20)
+            size = random.randint(7, 15)
+            _draw_star(draw, sx, sy, size=size)
 
     try:
         img.save(path, format="PNG")
@@ -717,10 +791,11 @@ def run_vk_bot():
 
             if cmd == "/profile":
                 path = generate_profile_image(user_id, profile, vk)
-                backup_text = build_profile_text(user_id, profile)
                 if path and os.path.exists(path):
                     send_photo(vk_session, peer_id, path)
-                vk.messages.send(peer_id=peer_id, message=backup_text, random_id=random_id())
+                else:
+                    backup_text = build_profile_text(user_id, profile)
+                    vk.messages.send(peer_id=peer_id, message=backup_text, random_id=random_id())
                 continue
 
             if cmd == "/daily":
