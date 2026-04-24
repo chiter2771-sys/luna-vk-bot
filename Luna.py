@@ -6,10 +6,19 @@ import json
 import os
 import random
 import logging
+import re
+from datetime import datetime, timezone, timedelta
 
-# 🔑
-from config.keys import VK_TOKEN, OPENROUTER_API_KEY
+# 🔑 (Railway-friendly: tokens from environment variables)
+VK_TOKEN = os.getenv("VK_TOKEN", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip().strip('"').strip("'")
 MODEL = "openai/gpt-4o-mini"
+FALLBACK_MODEL = "openai/gpt-4o-mini"
+AI_FAILURE_UNTIL = 0
+AI_FAILURE_REASON = ""
+
+OWNER_IDS = {item.strip() for item in os.getenv("VK_CREATOR_IDS", "236880436").split(",") if item.strip()}
+ROLE_ALIASES = {"user", "mod", "admin", "superadmin", "owner"}
 
 MEMORY_DIR = "memory"
 PROFILE_DIR = "profiles"
@@ -200,14 +209,26 @@ def handle_game(profile, message):
 
 {random.choice(questions)}"""
 
+def extract_vk_id(raw_value):
+    value = raw_value.strip()
+
+    mention_match = re.search(r"(?:id|club)(-?\d+)", value)
+    if mention_match:
+        return mention_match.group(1)
+
+    numeric_match = re.search(r"-?\d+", value)
+    if numeric_match:
+        return numeric_match.group(0)
+
+    return None
+
+
+def is_owner(user_id):
+    return str(user_id) in OWNER_IDS
+
 # 📜 КОМАНДЫ
 def handle_command(user_id, text):
     profile = load_profile(user_id)
-
-    # 🔥 ВАЖНО: сюда свой реальный ID (не группы!)
-    ADMIN_IDS = [236880436]
-
-    is_admin = str(user_id) in ADMIN_IDS
 
     # 📜 HELP
     if text.startswith("/help"):
@@ -222,8 +243,8 @@ def handle_command(user_id, text):
 🎁 /daily — награда
 
 👑 админ:
- /role
- /premium
+ /role <role> <id>
+ /premium <id>
 
 …или просто напиши мне 😏
 """
@@ -281,50 +302,6 @@ def handle_command(user_id, text):
 
 {msg or ""}"""
 
-    # =========================
-    # 👑 АДМИН КОМАНДЫ
-    # =========================
-
-    # 🎭 ВЫДАЧА РОЛИ
-    if text.startswith("/role"):
-        if not is_admin:
-            return "нет прав 😏"
-
-        try:
-            parts = text.split()
-            role = parts[1]
-            target_id = parts[2].replace("id", "").replace("@", "")
-
-            target = load_profile(target_id)
-            target["role"] = role
-            save_profile(target_id, target)
-
-            return f"роль выдана: {role}"
-
-        except:
-            return "пример: /role admin id123"
-
-    # 💎 ПРЕМИУМ ВКЛ/ВЫКЛ
-    if text.startswith("/premium"):
-        if not is_admin:
-            return "нет прав 😏"
-
-        try:
-            parts = text.split()
-            target_id = parts[1].replace("id", "").replace("@", "")
-
-            target = load_profile(target_id)
-
-            # переключение
-            target["premium"] = not target.get("premium", False)
-
-            save_profile(target_id, target)
-
-            return "премиум обновлён"
-
-        except:
-            return "пример: /premium id123"
-
     return None
 
 # 😏 настроение
@@ -359,7 +336,19 @@ def build_prompt(profile):
 
 # 🤖 AI
 async def get_ai_response(user_id, message):
+    global AI_FAILURE_UNTIL, AI_FAILURE_REASON
     try:
+        if not OPENROUTER_API_KEY:
+            return "⚠️ OPENROUTER_API_KEY не задан. Добавь ключ в Railway Variables."
+
+        if OPENROUTER_API_KEY and not OPENROUTER_API_KEY.startswith("sk-or-v1-"):
+            return "⚠️ OPENROUTER_API_KEY выглядит некорректно (ожидается префикс sk-or-v1-)."
+
+        now = time.time()
+        if AI_FAILURE_UNTIL > now:
+            wait_left = int(AI_FAILURE_UNTIL - now)
+            return f"⚠️ ИИ временно недоступен ({AI_FAILURE_REASON}). Повтори через {wait_left} сек."
+
         profile = load_profile(user_id)
         profile = update_mood(profile)
         save_profile(user_id, profile)
@@ -370,37 +359,84 @@ async def get_ai_response(user_id, message):
         messages.extend(memory)
         messages.append({"role": "user", "content": message})
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": MODEL,
-                    "messages": messages,
-                    "temperature": 1.05,
-                    "max_tokens": 200,
-                },
-            ) as resp:
+        timeout = aiohttp.ClientTimeout(total=40)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            models = [MODEL]
+            if FALLBACK_MODEL and FALLBACK_MODEL != MODEL:
+                models.append(FALLBACK_MODEL)
 
-                data = await resp.json()
-                text = data["choices"][0]["message"]["content"].strip()
+            for model in models:
+                for attempt in range(3):
+                    async with session.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "https://railway.app"),
+                            "X-Title": os.getenv("OPENROUTER_APP_NAME", "luna-vk-bot"),
+                        },
+                        json={
+                            "model": model,
+                            "messages": messages,
+                            "temperature": 1.05,
+                            "max_tokens": 200,
+                        },
+                    ) as resp:
+                        data = await resp.json(content_type=None)
 
-                if random.random() < 0.25:
-                    text = f"…{text}"
-                if random.random() < 0.25:
-                    text += random.choice([" 😏", " 🌙", " 👀"])
+                        if resp.status == 402:
+                            err = data.get("error", {}).get("message") or data.get("message") or "insufficient credits"
+                            AI_FAILURE_REASON = "недостаточно кредитов OpenRouter"
+                            AI_FAILURE_UNTIL = time.time() + 1800
+                            logging.error(f"OpenRouter billing error 402: {err}")
+                            return "⚠️ На OpenRouter закончились кредиты. Пополни баланс: https://openrouter.ai/settings/credits"
 
-                save_memory(user_id, "user", message)
-                save_memory(user_id, "assistant", text)
+                        if resp.status in (401, 403):
+                            err = data.get("error", {}).get("message") or data.get("message") or "доступ запрещён"
+                            AI_FAILURE_REASON = f"{resp.status}: {err}"
+                            AI_FAILURE_UNTIL = time.time() + 600
+                            logging.error(f"OpenRouter auth error {resp.status}: {err}")
+                            return "⚠️ OpenRouter отклонил ключ (401/403). Проверь ключ без кавычек и доступ модели в OpenRouter."
 
-                return text
+                        if resp.status in (429, 500, 502, 503, 504):
+                            err = data.get("error", {}).get("message") or data.get("message") or "временная ошибка"
+                            logging.warning(f"OpenRouter temporary HTTP {resp.status} (attempt {attempt+1}/3): {err}")
+                            await asyncio.sleep(1.5 * (attempt + 1))
+                            continue
+
+                        if resp.status != 200:
+                            err = data.get("error", {}).get("message") or data.get("message") or "ошибка openrouter"
+                            logging.error(f"OpenRouter HTTP {resp.status}: {err}")
+                            break
+
+                        choices = data.get("choices") or []
+                        if not choices:
+                            logging.error(f"OpenRouter invalid payload for model {model}: {data}")
+                            break
+
+                        text = (choices[0].get("message", {}).get("content") or "").strip()
+                        if not text:
+                            logging.warning(f"OpenRouter returned empty content for model {model}")
+                            break
+
+                        AI_FAILURE_UNTIL = 0
+                        AI_FAILURE_REASON = ""
+
+                        if random.random() < 0.25:
+                            text = f"…{text}"
+                        if random.random() < 0.25:
+                            text += random.choice([" 😏", " 🌙", " 👀"])
+
+                        save_memory(user_id, "user", message)
+                        save_memory(user_id, "assistant", text)
+
+                        return text
+
+            return "⚠️ ИИ сейчас недоступен. Проверь ключ OpenRouter и попробуй позже."
 
     except Exception:
         logging.exception("AI error")
-        return "…ты меня сломал 😶"
+        return "⚠️ Временный сбой ИИ, попробуй ещё раз."
 
 #генерация фото профиля
 
@@ -501,14 +537,19 @@ def generate_profile_image_html(user_id, profile):
 
     path = f"{IMAGE_DIR}/profile_{user_id}.png"
 
-    with sync_playwright() as p:
-        browser = p.webkit.launch()
-        page = browser.new_page(viewport={"width": 1100, "height": 450})
-        page.set_content(html)
-        page.screenshot(path=path)
-        browser.close()
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
+            page = browser.new_page(viewport={"width": 1100, "height": 450})
+            page.set_content(html)
+            page.wait_for_timeout(300)
+            page.screenshot(path=path)
+            browser.close()
 
-    return path
+        return path
+    except Exception:
+        logging.exception("profile image render error")
+        return None
 
 
 #получение фото профиля из вк юзера
@@ -532,7 +573,7 @@ def get_vk_avatar(user_id):
         user = vk.users.get(user_ids=user_id, fields="photo_200")[0]
         url = user["photo_200"]
 
-        img_data = requests.get(url).content
+        img_data = requests.get(url, timeout=15).content
 
         with open(path, "wb") as f:
             f.write(img_data)
@@ -558,27 +599,51 @@ def send_photo(vk, peer_id, file_path):
         random_id=random.randint(1, 9999999)
     )
 
+
+def build_profile_text(user_id, profile):
+    role = profile.get("role", "user")
+    premium = "да" if profile.get("premium") else "нет"
+    return (
+        "📊 Профиль\n\n"
+        f"👤 id{user_id}\n"
+        f"🎭 Роль: {role}\n"
+        f"⭐ Уровень: {profile.get('level', 1)}\n"
+        f"✨ XP: {profile.get('xp', 0)}/{profile.get('level', 1) * 100}\n"
+        f"💰 Монеты: {profile.get('coins', 0)}\n"
+        f"💬 Сообщения: {profile.get('messages', 0)}\n"
+        f"🎮 Игры: {profile.get('games_played', 0)}\n"
+        f"💎 Премиум: {premium}"
+    )
+
 # 💬 VK BOT
 def run_vk_bot():
+    if not VK_TOKEN:
+        raise RuntimeError("VK_TOKEN is empty. Set VK_TOKEN in environment variables.")
+
     vk_session = vk_api.VkApi(token=VK_TOKEN)
     vk = vk_session.get_api()
     longpoll = VkLongPoll(vk_session)
 
     logging.info("VK бот запущен")
 
-    ADMIN_IDS = ["ТВОЙ_ID"]  # ← ОБЯЗАТЕЛЬНО сюда свой id
-
     for event in longpoll.listen():
         try:
             if event.type == VkEventType.MESSAGE_NEW:
 
-                # 💡 ВАЖНО: теперь работает и в беседе и в лс
+                if getattr(event, "from_me", False):
+                    continue
+
                 user_id = str(event.user_id)
+                if not user_id or user_id.startswith("-"):
+                    continue
+
                 peer_id = event.peer_id
                 text = event.text.strip()
 
-                # 🔥 ПРОВЕРКА АДМИНА (фикс)
-                is_admin = user_id in ADMIN_IDS
+                if not text:
+                    continue
+
+                is_admin = is_owner(user_id)
 
                 # 📜 команды
                 cmd = handle_command(user_id, text)
@@ -587,7 +652,14 @@ def run_vk_bot():
                 if cmd == "PROFILE_IMAGE":
                     profile = load_profile(user_id)
                     path = generate_profile_image_html(user_id, profile)
-                    send_photo(vk, peer_id, path)
+                    if path and os.path.exists(path):
+                        send_photo(vk, peer_id, path)
+                    else:
+                        vk.messages.send(
+                            peer_id=peer_id,
+                            message=build_profile_text(user_id, profile),
+                            random_id=random.randint(1, 9999999)
+                        )
                     continue
 
                 # 👑 ФИКС АДМИН КОМАНД (работает даже в беседе)
@@ -602,8 +674,13 @@ def run_vk_bot():
 
                     try:
                         parts = text.split()
-                        role = parts[1]
-                        target_id = parts[2].replace("id", "").replace("@", "")
+                        role = parts[1].lower()
+                        if role not in ROLE_ALIASES:
+                            raise ValueError
+
+                        target_id = extract_vk_id(parts[2])
+                        if not target_id:
+                            raise ValueError
 
                         target = load_profile(target_id)
                         target["role"] = role
@@ -617,7 +694,7 @@ def run_vk_bot():
                     except:
                         vk.messages.send(
                             peer_id=peer_id,
-                            message="пример: /role admin id123",
+                            message="пример: /role admin id123 или /role mod https://vk.com/id123",
                             random_id=random.randint(1, 9999999)
                         )
                     continue
@@ -633,7 +710,9 @@ def run_vk_bot():
 
                     try:
                         parts = text.split()
-                        target_id = parts[1].replace("id", "").replace("@", "")
+                        target_id = extract_vk_id(parts[1])
+                        if not target_id:
+                            raise ValueError
 
                         target = load_profile(target_id)
                         target["premium"] = not target.get("premium", False)
@@ -647,7 +726,7 @@ def run_vk_bot():
                     except:
                         vk.messages.send(
                             peer_id=peer_id,
-                            message="пример: /premium id123",
+                            message="пример: /premium id123 или /premium [id123|user]",
                             random_id=random.randint(1, 9999999)
                         )
                     continue

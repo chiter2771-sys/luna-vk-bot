@@ -2,224 +2,273 @@
 <head>
 <meta charset="UTF-8">
 <style>
-
+* {{ box-sizing: border-box; }}
 body {{
     margin: 0;
     width: 1100px;
     height: 450px;
-    font-family: Arial;
-    color: white;
-    background: linear-gradient(180deg, #1a1a1a, #0b0c14);
+    font-family: "Inter", "Segoe UI", Arial, sans-serif;
+    color: #e9eeff;
+    background:
+      radial-gradient(1200px 400px at -5% 120%, rgba(123, 105, 255, 0.32), transparent 56%),
+      radial-gradient(900px 380px at 105% -10%, rgba(80, 170, 255, 0.30), transparent 50%),
+      linear-gradient(160deg, #0b1021 0%, #131b35 48%, #0e152d 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}}
+
+.card {{
+    width: 1020px;
+    height: 382px;
+    padding: 20px;
+    border-radius: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    background: linear-gradient(170deg, rgba(20, 30, 59, 0.82), rgba(10, 16, 35, 0.90));
+    backdrop-filter: blur(10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+}}
+
+.header {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
 }}
 
 .title {{
-    text-align: center;
-    font-size: 34px;
-    margin-top: 10px;
-    letter-spacing: 2px;
-    color: #eaeaea;
+    font-size: 26px;
+    letter-spacing: 1px;
+    font-weight: 700;
 }}
 
-.container {{
+.subtitle {{
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #93a2d8;
+    letter-spacing: 1.8px;
+}}
+
+.layout {{
+    height: calc(100% - 54px);
     display: grid;
-    grid-template-columns: 230px 1fr 370px;
-    gap: 20px;
-    padding: 15px 25px;
+    grid-template-columns: 230px 1fr 250px;
+    gap: 16px;
 }}
 
-.side {{
-    background: #121212;
+.panel {{
+    background: rgba(9, 14, 29, 0.68);
+    border: 1px solid rgba(170, 190, 255, 0.13);
     border-radius: 20px;
-    padding: 20px;
+    padding: 16px;
 }}
 
-.item {{
-    margin-bottom: 22px;
+.metrics {{
+    display: grid;
+    gap: 12px;
 }}
 
-.small {{
-    font-size: 13px;
-    color: #aaa;
+.metric {{
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(103, 136, 255, 0.08);
+    border: 1px solid rgba(117, 145, 255, 0.2);
 }}
 
-.value {{
-    font-size: 20px;
+.metric .name {{
+    font-size: 12px;
+    color: #9fb0e6;
+    margin-bottom: 5px;
 }}
 
-.center-card {{
-    background: #151515;
-    border-radius: 25px;
-    padding: 20px;
-    text-align: center;
+.metric .val {{
+    font-size: 22px;
+    font-weight: 700;
+}}
+
+.center {{
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    align-items: center;
+    justify-items: center;
 }}
 
 .avatar-wrap {{
+    width: 156px;
+    height: 156px;
     position: relative;
-    width: 130px;
-    height: 130px;
-    margin: auto;
-}}
-
-.avatar {{
-    width: 130px;
-    height: 130px;
-    border-radius: 50%;
-    border: 3px solid {glow_color};
 }}
 
 .level-ring {{
     position: absolute;
-    top: -5px;
-    left: -5px;
-    width: 140px;
-    height: 140px;
+    inset: 0;
     border-radius: 50%;
-    border: 6px solid rgba(255,255,255,0.05);
-    border-top: 6px solid {glow_color};
-    transform: rotate(calc({progress_deg}deg - 90deg));
+    background: conic-gradient({glow_color} {progress}%, rgba(255, 255, 255, 0.07) 0);
+    padding: 6px;
+}}
+
+.level-ring::before {{
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: #0f1730;
+}}
+
+.avatar {{
+    position: absolute;
+    width: 136px;
+    height: 136px;
+    border-radius: 50%;
+    top: 10px;
+    left: 10px;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.2);
 }}
 
 .level-badge {{
     position: absolute;
-    top: -10px;
-    right: -10px;
-    background: #e0e0e0;
-    color: black;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+    right: 0;
+    bottom: 4px;
+    min-width: 40px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: {glow_color};
+    color: #0a1024;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px {glow_color};
 }}
 
 .nickname {{
     margin-top: 10px;
-    font-size: 18px;
+    font-size: 22px;
+    font-weight: 700;
 }}
 
 .role {{
-    margin-top: 8px;
-    padding: 6px 14px;
-    border-radius: 12px;
-    background: #222;
-    display: inline-block;
-    font-size: 14px;
+    margin-top: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(185, 202, 255, 0.33);
+    color: #c5d3ff;
+    font-size: 13px;
 }}
 
 .progress {{
-    margin-top: 15px;
-    height: 8px;
-    background: #2a2a2a;
-    border-radius: 10px;
+    width: 100%;
+    margin-top: 16px;
+}}
+
+.progress-line {{
+    position: relative;
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
     overflow: hidden;
 }}
 
 .progress-bar {{
-    height: 8px;
+    height: 100%;
     width: {progress}%;
-    background: linear-gradient(90deg, {glow_color}, #ffffff);
+    border-radius: 999px;
+    background: linear-gradient(90deg, {glow_color}, #93c8ff);
 }}
 
-.premium-panel {{
-    background: #121212;
-    border-radius: 25px;
-    padding: 30px 20px;
+.progress-label {{
+    margin-top: 7px;
+    font-size: 12px;
+    color: #a9b9ea;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
+    justify-content: space-between;
+}}
+
+.premium {{
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    justify-items: center;
     text-align: center;
-    box-shadow: 0 0 40px rgba(100,120,255,0.15);
 }}
 
-.premium-title {{
-    font-size: 18px;
-    color: #888;
+.premium .head {{
+    font-size: 12px;
+    color: #93a2d8;
+    text-transform: uppercase;
+    letter-spacing: 1.7px;
 }}
 
-/* 🔥 КОРОНА С МЕСЯЦЕМ */
 .crown {{
-    position: relative;
-    font-size: 110px;
+    font-size: 98px;
+    line-height: 1;
     color: {premium_color};
-    text-shadow: 0 0 25px {premium_color};
+    text-shadow: 0 0 26px rgba(189, 205, 255, 0.45);
+    align-self: center;
 }}
 
-.crown::after {{
-    content: "☾";
-    position: absolute;
-    font-size: 40px;
-    top: 35px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #0b0c14;
-}}
-
-.premium-status {{
-    font-size: 22px;
+.status {{
+    font-weight: 700;
     color: {premium_color};
+    font-size: 20px;
 }}
-
-.xp {{
-    margin-top: 12px;
-    font-size: 15px;
-    color: #aaa;
-}}
-
 </style>
 </head>
-
 <body>
-
-<div class="title">СТАТИСТИКА</div>
-
-<div class="container">
-
-<div class="side">
-    <div class="item">
-        <div class="small">Сообщения</div>
-        <div class="value">{messages}</div>
+  <div class="card">
+    <div class="header">
+      <div class="title">Профиль Луны</div>
+      <div class="subtitle">игровая статистика</div>
     </div>
 
-    <div class="item">
-        <div class="small">Лунные монетки</div>
-        <div class="value">{coins}</div>
+    <div class="layout">
+      <div class="panel metrics">
+        <div class="metric">
+          <div class="name">Сообщения</div>
+          <div class="val">{messages}</div>
+        </div>
+        <div class="metric">
+          <div class="name">Лунные монеты</div>
+          <div class="val">{coins}</div>
+        </div>
+        <div class="metric">
+          <div class="name">Игры сыграно</div>
+          <div class="val">{games}</div>
+        </div>
+        <div class="metric">
+          <div class="name">Регистрация</div>
+          <div class="val" style="font-size:15px">{reg_date}</div>
+        </div>
+      </div>
+
+      <div class="panel center">
+        <div class="avatar-wrap">
+          <div class="level-ring"></div>
+          <img class="avatar" src="{avatar_url}" alt="avatar">
+          <div class="level-badge">Lv {level}</div>
+        </div>
+        <div class="nickname">{nickname}</div>
+        <div class="role">{role}</div>
+
+        <div class="progress">
+          <div class="progress-line">
+            <div class="progress-bar"></div>
+          </div>
+          <div class="progress-label">
+            <span>XP {xp}/{max_xp}</span>
+            <span>{progress}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel premium">
+        <div class="head">Премиум</div>
+        <div class="crown">♛</div>
+        <div class="status">{premium}</div>
+      </div>
     </div>
-
-    <div class="item">
-        <div class="small">Дата регистрации</div>
-        <div class="value">{reg_date}</div>
-    </div>
-</div>
-
-<div class="center-card">
-    <div class="avatar-wrap">
-        <div class="level-ring"></div>
-        <img class="avatar" src="{avatar_url}">
-        <div class="level-badge">{level}</div>
-    </div>
-
-    <div class="nickname">{nickname}</div>
-    <div class="role">{role}</div>
-
-    <div class="progress">
-        <div class="progress-bar"></div>
-    </div>
-</div>
-
-<div class="premium-panel">
-
-    <div class="premium-title">ПРЕМИУМ</div>
-
-    <div class="crown">♛</div>
-
-    <div class="premium-status">{premium}</div>
-
-    <div class="xp">{xp}/{max_xp}</div>
-
-</div>
-
-</div>
-
+  </div>
 </body>
 </html>
