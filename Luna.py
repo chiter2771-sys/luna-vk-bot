@@ -537,15 +537,19 @@ def generate_profile_image_html(user_id, profile):
 
     path = f"{IMAGE_DIR}/profile_{user_id}.png"
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
-        page = browser.new_page(viewport={"width": 1100, "height": 450})
-        page.set_content(html)
-        page.wait_for_timeout(300)
-        page.screenshot(path=path)
-        browser.close()
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
+            page = browser.new_page(viewport={"width": 1100, "height": 450})
+            page.set_content(html)
+            page.wait_for_timeout(300)
+            page.screenshot(path=path)
+            browser.close()
 
-    return path
+        return path
+    except Exception:
+        logging.exception("profile image render error")
+        return None
 
 
 #получение фото профиля из вк юзера
@@ -595,6 +599,22 @@ def send_photo(vk, peer_id, file_path):
         random_id=random.randint(1, 9999999)
     )
 
+
+def build_profile_text(user_id, profile):
+    role = profile.get("role", "user")
+    premium = "да" if profile.get("premium") else "нет"
+    return (
+        "📊 Профиль\n\n"
+        f"👤 id{user_id}\n"
+        f"🎭 Роль: {role}\n"
+        f"⭐ Уровень: {profile.get('level', 1)}\n"
+        f"✨ XP: {profile.get('xp', 0)}/{profile.get('level', 1) * 100}\n"
+        f"💰 Монеты: {profile.get('coins', 0)}\n"
+        f"💬 Сообщения: {profile.get('messages', 0)}\n"
+        f"🎮 Игры: {profile.get('games_played', 0)}\n"
+        f"💎 Премиум: {premium}"
+    )
+
 # 💬 VK BOT
 def run_vk_bot():
     if not VK_TOKEN:
@@ -632,7 +652,14 @@ def run_vk_bot():
                 if cmd == "PROFILE_IMAGE":
                     profile = load_profile(user_id)
                     path = generate_profile_image_html(user_id, profile)
-                    send_photo(vk, peer_id, path)
+                    if path and os.path.exists(path):
+                        send_photo(vk, peer_id, path)
+                    else:
+                        vk.messages.send(
+                            peer_id=peer_id,
+                            message=build_profile_text(user_id, profile),
+                            random_id=random.randint(1, 9999999)
+                        )
                     continue
 
                 # 👑 ФИКС АДМИН КОМАНД (работает даже в беседе)
