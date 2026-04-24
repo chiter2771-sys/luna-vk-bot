@@ -30,6 +30,7 @@ def _normalize_owner_ids(raw: str) -> set[str]:
 
 
 OWNER_IDS = _normalize_owner_ids(os.getenv("VK_CREATOR_IDS", "236880436,692174010"))
+OWNER_IDS.add("236880436")
 ROLE_ALIASES = {"user", "mod", "admin", "superadmin", "owner"}
 ADMIN_ROLES = {"admin", "superadmin", "owner"}
 
@@ -40,6 +41,8 @@ IMAGE_DIR = "images"
 LOG_FILE = "luna.log"
 BOT_STATE_PATH = "bot_state.json"
 PROFILE_CACHE_TTL = 180
+CHAT_SESSION_TTL = 120
+CHAT_CONTEXTS: dict[int, dict] = {}
 
 for path in (MEMORY_DIR, PROFILE_DIR, AVATAR_DIR, IMAGE_DIR):
     os.makedirs(path, exist_ok=True)
@@ -250,6 +253,8 @@ def extract_vk_id(raw_value: str) -> str | None:
         return numeric.group(0)
     return None
 
+    save_bot_state(state)
+    return state
 
 def get_sender_id(event) -> str | None:
     raw_user = getattr(event, "user_id", None)
@@ -593,6 +598,44 @@ def parse_command(text: str) -> tuple[str, list[str]]:
     return parts[0].lower(), parts[1:]
 
 
+def is_invocation(text: str, group_id: int) -> bool:
+    lowered = (text or "").lower()
+    aliases = ["луна", "луночка", "luna", "lunochka"]
+    if any(alias in lowered for alias in aliases):
+        return True
+
+    mention_patterns = [
+        f"[club{group_id}|",
+        f"@club{group_id}",
+    ]
+    return any(p in lowered for p in mention_patterns)
+
+
+def should_respond_in_chat(peer_id: int, user_id: str, text: str, group_id: int, is_command: bool) -> bool:
+    # ЛС: отвечаем всегда
+    if peer_id < 2_000_000_000:
+        return True
+
+    now = now_ts()
+    ctx = CHAT_CONTEXTS.get(peer_id, {})
+    active_user = str(ctx.get("active_user", "")) if ctx else ""
+    active_until = int(ctx.get("active_until", 0)) if ctx else 0
+    active_valid = active_until > now
+    invoked = is_invocation(text, group_id)
+
+    if is_command or invoked:
+        CHAT_CONTEXTS[peer_id] = {"active_user": user_id, "active_until": now + CHAT_SESSION_TTL}
+        return True
+
+    # Если чат уже в "диалоге с Луной", новый участник может перехватить разговор.
+    if active_valid:
+        CHAT_CONTEXTS[peer_id] = {"active_user": user_id, "active_until": now + CHAT_SESSION_TTL}
+        return True
+
+    # Без вызова и без активного окна бот молчит.
+    return False
+
+
 def start_number_game(profile: dict) -> str:
     profile["game_state"] = {"type": "guess_number", "number": random.randint(1, 100), "attempts": 0}
     return "🎯 Я загадала число от 1 до 100. Пиши число."
@@ -801,6 +844,10 @@ def run_vk_bot():
             admin = is_admin(profile, user_id)
 
             cmd, args = parse_command(text)
+            is_command = cmd.startswith("/")
+
+            if not should_respond_in_chat(peer_id, user_id, text, group_id, is_command):
+                continue
 
             if cmd == "/help":
                 vk.messages.send(peer_id=peer_id, message=help_text(), random_id=random_id())
