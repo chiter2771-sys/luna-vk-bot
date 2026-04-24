@@ -12,7 +12,10 @@ from datetime import datetime, timezone, timedelta
 # 🔑 (Railway-friendly: tokens from environment variables)
 VK_TOKEN = os.getenv("VK_TOKEN", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-MODEL = "openai/gpt-4o-mini"
+MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+
+OWNER_IDS = {item.strip() for item in os.getenv("VK_CREATOR_IDS", "236880436").split(",") if item.strip()}
+ROLE_ALIASES = {"user", "mod", "admin", "superadmin", "owner"}
 
 OWNER_IDS = {item.strip() for item in os.getenv("VK_CREATOR_IDS", "236880436").split(",") if item.strip()}
 ROLE_ALIASES = {"user", "mod", "admin", "superadmin", "owner"}
@@ -347,12 +350,15 @@ async def get_ai_response(user_id, message):
         messages.extend(memory)
         messages.append({"role": "user", "content": message})
 
-        async with aiohttp.ClientSession() as session:
+        timeout = aiohttp.ClientTimeout(total=40)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                     "Content-Type": "application/json",
+                    "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "https://railway.app"),
+                    "X-Title": os.getenv("OPENROUTER_APP_NAME", "luna-vk-bot"),
                 },
                 json={
                     "model": MODEL,
@@ -361,9 +367,21 @@ async def get_ai_response(user_id, message):
                     "max_tokens": 200,
                 },
             ) as resp:
-
                 data = await resp.json()
-                text = data["choices"][0]["message"]["content"].strip()
+                if resp.status != 200:
+                    err = data.get("error", {}).get("message") or data.get("message") or "ошибка openrouter"
+                    logging.error(f"OpenRouter HTTP {resp.status}: {err}")
+                    return f"⚠️ Ошибка ИИ ({resp.status}): {err}"
+
+                choices = data.get("choices") or []
+                if not choices:
+                    err = data.get("error", {}).get("message") or "пустой ответ от модели"
+                    logging.error(f"OpenRouter invalid payload: {data}")
+                    return f"⚠️ Модель недоступна: {err}"
+
+                text = (choices[0].get("message", {}).get("content") or "").strip()
+                if not text:
+                    return "⚠️ Модель вернула пустой ответ."
 
                 if random.random() < 0.25:
                     text = f"…{text}"
