@@ -253,6 +253,8 @@ def extract_vk_id(raw_value: str) -> str | None:
         return numeric.group(0)
     return None
 
+    save_bot_state(state)
+    return state
 
 def get_sender_id(event) -> str | None:
     raw_user = getattr(event, "user_id", None)
