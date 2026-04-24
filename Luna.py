@@ -17,6 +17,9 @@ MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 OWNER_IDS = {item.strip() for item in os.getenv("VK_CREATOR_IDS", "236880436").split(",") if item.strip()}
 ROLE_ALIASES = {"user", "mod", "admin", "superadmin", "owner"}
 
+OWNER_IDS = {item.strip() for item in os.getenv("VK_CREATOR_IDS", "236880436").split(",") if item.strip()}
+ROLE_ALIASES = {"user", "mod", "admin", "superadmin", "owner"}
+
 MEMORY_DIR = "memory"
 PROFILE_DIR = "profiles"
 LOG_FILE = "luna.log"
