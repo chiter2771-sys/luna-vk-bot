@@ -12,8 +12,8 @@ from datetime import datetime, timezone, timedelta
 # 🔑 (Railway-friendly: tokens from environment variables)
 VK_TOKEN = os.getenv("VK_TOKEN", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip().strip('"').strip("'")
-MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
-FALLBACK_MODEL = os.getenv("OPENROUTER_FALLBACK_MODEL", "openai/gpt-4o-mini")
+MODEL = "openai/gpt-4o-mini"
+FALLBACK_MODEL = "openai/gpt-4o-mini"
 AI_FAILURE_UNTIL = 0
 AI_FAILURE_REASON = ""
 
@@ -384,6 +384,13 @@ async def get_ai_response(user_id, message):
                     ) as resp:
                         data = await resp.json(content_type=None)
 
+                        if resp.status == 402:
+                            err = data.get("error", {}).get("message") or data.get("message") or "insufficient credits"
+                            AI_FAILURE_REASON = "недостаточно кредитов OpenRouter"
+                            AI_FAILURE_UNTIL = time.time() + 1800
+                            logging.error(f"OpenRouter billing error 402: {err}")
+                            return "⚠️ На OpenRouter закончились кредиты. Пополни баланс: https://openrouter.ai/settings/credits"
+
                         if resp.status in (401, 403):
                             err = data.get("error", {}).get("message") or data.get("message") or "доступ запрещён"
                             AI_FAILURE_REASON = f"{resp.status}: {err}"
@@ -425,7 +432,7 @@ async def get_ai_response(user_id, message):
 
                         return text
 
-            return "⚠️ ИИ сейчас недоступен. Проверь OPENROUTER_MODEL/ключ и попробуй позже."
+            return "⚠️ ИИ сейчас недоступен. Проверь ключ OpenRouter и попробуй позже."
 
     except Exception:
         logging.exception("AI error")
