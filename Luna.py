@@ -11,14 +11,25 @@ from datetime import datetime, timedelta, timezone
 import aiohttp
 import vk_api
 from PIL import Image, ImageDraw, ImageFont, ImageOps
-from vk_api.longpoll import VkEventType, VkLongPoll
+from vk_api.bot_longpoll import VkBotEventType, VkBotLongPoll
 
 VK_TOKEN = os.getenv("VK_TOKEN", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip().strip('"').strip("'")
 MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 FALLBACK_MODEL = os.getenv("OPENROUTER_FALLBACK_MODEL", "openai/gpt-4o-mini")
 
-OWNER_IDS = {item.strip() for item in os.getenv("VK_CREATOR_IDS", "236880436,692174010").split(",") if item.strip()}
+def _normalize_owner_ids(raw: str) -> set[str]:
+    result = set()
+    for item in raw.split(","):
+        value = item.strip()
+        if not value:
+            continue
+        match = re.search(r"-?\d+", value)
+        result.add(match.group(0) if match else value)
+    return result
+
+
+OWNER_IDS = _normalize_owner_ids(os.getenv("VK_CREATOR_IDS", "236880436,692174010"))
 ROLE_ALIASES = {"user", "mod", "admin", "superadmin", "owner"}
 ADMIN_ROLES = {"admin", "superadmin", "owner"}
 
@@ -393,9 +404,11 @@ def get_display_name(vk, user_id: str, profile: dict) -> str:
     return cached_name or f"id{user_id}"
 
 
-def _safe_font(size: int):
+def _safe_font(size: int, bold: bool = False):
     font_candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
         "DejaVuSans.ttf",
@@ -458,9 +471,9 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
     draw = ImageDraw.Draw(img)
     _draw_card(draw, width, height)
 
-    font_title = _safe_font(72)
-    font_name = _safe_font(50)
-    font_sub = _safe_font(36)
+    font_title = _safe_font(72, bold=True)
+    font_name = _safe_font(50, bold=True)
+    font_sub = _safe_font(36, bold=True)
     font_text = _safe_font(42)
     font_micro = _safe_font(24)
 
@@ -758,25 +771,32 @@ def run_vk_bot():
 
     vk_session = vk_api.VkApi(token=VK_TOKEN)
     vk = vk_session.get_api()
-    longpoll = VkLongPoll(vk_session)
+    group_id = vk.groups.getById()[0]["id"]
+    longpoll = VkBotLongPoll(vk_session, group_id)
 
     logging.info("VK бот запущен")
     logging.info("OWNER_IDS loaded: %s", sorted(OWNER_IDS))
 
     for event in longpoll.listen():
         try:
-            if event.type != VkEventType.MESSAGE_NEW or getattr(event, "from_me", False):
+            if event.type != VkBotEventType.MESSAGE_NEW:
                 continue
 
-            user_id = get_sender_id(event)
-            if not user_id:
+            message_obj = event.object.get("message", {})
+            user_id_raw = message_obj.get("from_id") or message_obj.get("user_id")
+            if not user_id_raw:
+                continue
+            user_id = str(user_id_raw)
+            if user_id.startswith("-"):
                 continue
 
-            text = (event.text or "").strip()
+            text = (message_obj.get("text") or "").strip()
             if not text:
                 continue
 
-            peer_id = event.peer_id
+            peer_id = message_obj.get("peer_id")
+            if not peer_id:
+                continue
             profile = load_profile(user_id)
             admin = is_admin(profile, user_id)
 
