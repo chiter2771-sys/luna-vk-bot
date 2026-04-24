@@ -11,11 +11,11 @@ from datetime import datetime, timezone, timedelta
 
 # 🔑 (Railway-friendly: tokens from environment variables)
 VK_TOKEN = os.getenv("VK_TOKEN", "")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip().strip('"').strip("'")
 MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
-
-OWNER_IDS = {item.strip() for item in os.getenv("VK_CREATOR_IDS", "236880436").split(",") if item.strip()}
-ROLE_ALIASES = {"user", "mod", "admin", "superadmin", "owner"}
+FALLBACK_MODEL = os.getenv("OPENROUTER_FALLBACK_MODEL", "openai/gpt-4o-mini")
+AI_FAILURE_UNTIL = 0
+AI_FAILURE_REASON = ""
 
 OWNER_IDS = {item.strip() for item in os.getenv("VK_CREATOR_IDS", "236880436").split(",") if item.strip()}
 ROLE_ALIASES = {"user", "mod", "admin", "superadmin", "owner"}
@@ -336,9 +336,18 @@ def build_prompt(profile):
 
 # 🤖 AI
 async def get_ai_response(user_id, message):
+    global AI_FAILURE_UNTIL, AI_FAILURE_REASON
     try:
         if not OPENROUTER_API_KEY:
-            return "⚠️ Не настроен OPENROUTER_API_KEY."
+            return "⚠️ OPENROUTER_API_KEY не задан. Добавь ключ в Railway Variables."
+
+        if OPENROUTER_API_KEY and not OPENROUTER_API_KEY.startswith("sk-or-v1-"):
+            return "⚠️ OPENROUTER_API_KEY выглядит некорректно (ожидается префикс sk-or-v1-)."
+
+        now = time.time()
+        if AI_FAILURE_UNTIL > now:
+            wait_left = int(AI_FAILURE_UNTIL - now)
+            return f"⚠️ ИИ временно недоступен ({AI_FAILURE_REASON}). Повтори через {wait_left} сек."
 
         profile = load_profile(user_id)
         profile = update_mood(profile)
@@ -352,50 +361,75 @@ async def get_ai_response(user_id, message):
 
         timeout = aiohttp.ClientTimeout(total=40)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "https://railway.app"),
-                    "X-Title": os.getenv("OPENROUTER_APP_NAME", "luna-vk-bot"),
-                },
-                json={
-                    "model": MODEL,
-                    "messages": messages,
-                    "temperature": 1.05,
-                    "max_tokens": 200,
-                },
-            ) as resp:
-                data = await resp.json()
-                if resp.status != 200:
-                    err = data.get("error", {}).get("message") or data.get("message") or "ошибка openrouter"
-                    logging.error(f"OpenRouter HTTP {resp.status}: {err}")
-                    return f"⚠️ Ошибка ИИ ({resp.status}): {err}"
+            models = [MODEL]
+            if FALLBACK_MODEL and FALLBACK_MODEL != MODEL:
+                models.append(FALLBACK_MODEL)
 
-                choices = data.get("choices") or []
-                if not choices:
-                    err = data.get("error", {}).get("message") or "пустой ответ от модели"
-                    logging.error(f"OpenRouter invalid payload: {data}")
-                    return f"⚠️ Модель недоступна: {err}"
+            for model in models:
+                for attempt in range(3):
+                    async with session.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "https://railway.app"),
+                            "X-Title": os.getenv("OPENROUTER_APP_NAME", "luna-vk-bot"),
+                        },
+                        json={
+                            "model": model,
+                            "messages": messages,
+                            "temperature": 1.05,
+                            "max_tokens": 200,
+                        },
+                    ) as resp:
+                        data = await resp.json(content_type=None)
 
-                text = (choices[0].get("message", {}).get("content") or "").strip()
-                if not text:
-                    return "⚠️ Модель вернула пустой ответ."
+                        if resp.status in (401, 403):
+                            err = data.get("error", {}).get("message") or data.get("message") or "доступ запрещён"
+                            AI_FAILURE_REASON = f"{resp.status}: {err}"
+                            AI_FAILURE_UNTIL = time.time() + 600
+                            logging.error(f"OpenRouter auth error {resp.status}: {err}")
+                            return "⚠️ OpenRouter отклонил ключ (401/403). Проверь ключ без кавычек и доступ модели в OpenRouter."
 
-                if random.random() < 0.25:
-                    text = f"…{text}"
-                if random.random() < 0.25:
-                    text += random.choice([" 😏", " 🌙", " 👀"])
+                        if resp.status in (429, 500, 502, 503, 504):
+                            err = data.get("error", {}).get("message") or data.get("message") or "временная ошибка"
+                            logging.warning(f"OpenRouter temporary HTTP {resp.status} (attempt {attempt+1}/3): {err}")
+                            await asyncio.sleep(1.5 * (attempt + 1))
+                            continue
 
-                save_memory(user_id, "user", message)
-                save_memory(user_id, "assistant", text)
+                        if resp.status != 200:
+                            err = data.get("error", {}).get("message") or data.get("message") or "ошибка openrouter"
+                            logging.error(f"OpenRouter HTTP {resp.status}: {err}")
+                            break
 
-                return text
+                        choices = data.get("choices") or []
+                        if not choices:
+                            logging.error(f"OpenRouter invalid payload for model {model}: {data}")
+                            break
+
+                        text = (choices[0].get("message", {}).get("content") or "").strip()
+                        if not text:
+                            logging.warning(f"OpenRouter returned empty content for model {model}")
+                            break
+
+                        AI_FAILURE_UNTIL = 0
+                        AI_FAILURE_REASON = ""
+
+                        if random.random() < 0.25:
+                            text = f"…{text}"
+                        if random.random() < 0.25:
+                            text += random.choice([" 😏", " 🌙", " 👀"])
+
+                        save_memory(user_id, "user", message)
+                        save_memory(user_id, "assistant", text)
+
+                        return text
+
+            return "⚠️ ИИ сейчас недоступен. Проверь OPENROUTER_MODEL/ключ и попробуй позже."
 
     except Exception:
         logging.exception("AI error")
-        return "…ты меня сломал 😶"
+        return "⚠️ Временный сбой ИИ, попробуй ещё раз."
 
 #генерация фото профиля
 
