@@ -517,67 +517,82 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
     need = max(100, level * 100)
     progress = max(0.0, min(1.0, xp / need))
 
+    # Более чистый современный стиль как в референсе
+    draw.rectangle((0, 0, width, height), fill=(46, 46, 46))
+
+    # Блоки
+    left_box = (28, 132, 302, 648)
+    center_box = (335, 230, 945, 648)
+    right_box = (968, 132, 1248, 648)
+    draw.rounded_rectangle(left_box, radius=30, fill=(29, 31, 35))
+    draw.rounded_rectangle(center_box, radius=30, fill=(31, 33, 38))
+    draw.rounded_rectangle(right_box, radius=30, fill=(29, 31, 35))
+
     # Заголовок
-    draw.text((420, 40), "СТАТИСТИКА", font=font_title, fill=(245, 248, 255))
+    draw.text((438, 40), "СТАТИСТИКА", font=font_title, fill=(244, 245, 247))
 
-    # Левый блок
-    draw.rounded_rectangle((30, 130, 300, 650), radius=30, fill=(24, 28, 42))
-    left_rows = [
-        ("MSG", "Сообщений", str(profile.get("messages", 0))),
-        ("COIN", "Star-монетки", str(profile.get("coins", 0))),
-        ("DATE", "Посл. активность", datetime.now(MSK_TZ).strftime("%d.%m.%Y")),
-        ("REP", "Репутация", f"+{profile.get('wins', 0)} (#{max(1, 2500 - profile.get('wins', 0))})"),
+    # Левый столб
+    stats_lines = [
+        ("Сообщений", str(profile.get("messages", 0)), (240, 240, 240)),
+        ("Star-монетки", str(profile.get("coins", 0)), (240, 240, 240)),
+        ("Посл. активность", datetime.now(MSK_TZ).strftime("%d.%m.%Y"), (240, 240, 240)),
+        ("Репутация", f"+{profile.get('wins', 0)} (#{max(1, 2500 - profile.get('wins', 0))})", (175, 216, 160)),
     ]
-    y = 165
-    for icon, title, value in left_rows:
-        draw.text((55, y), icon, font=font_text, fill=(240, 244, 255))
-        draw.text((115, y + 3), title, font=font_micro, fill=(140, 145, 165))
-        draw.text((115, y + 36), value, font=font_sub, fill=(239, 244, 255))
-        y += 120
+    y = 170
+    for title, value, color in stats_lines:
+        draw.text((108, y), title, font=font_micro, fill=(134, 137, 144))
+        draw.text((108, y + 34), value, font=font_sub, fill=color)
+        y += 115
 
-    # Центральная карточка
-    draw.rounded_rectangle((335, 225, 955, 650), radius=30, fill=(28, 31, 40))
+    # Простые иконки слева
+    draw.ellipse((48, 178, 92, 222), outline=(240, 240, 240), width=4)
+    draw.line((57, 200, 84, 200), fill=(240, 240, 240), width=4)
+    draw.ellipse((49, 278, 91, 320), outline=(240, 240, 240), width=4)
+    draw.polygon([(70, 286), (76, 300), (92, 300), (79, 309), (84, 323), (70, 314), (56, 323), (61, 309), (48, 300), (64, 300)], outline=(240, 240, 240))
+    draw.rectangle((50, 394, 90, 436), outline=(240, 240, 240), width=4)
+    draw.rectangle((56, 384, 63, 394), fill=(240, 240, 240))
+    draw.rectangle((77, 384, 84, 394), fill=(240, 240, 240))
+    draw.rectangle((50, 510, 90, 554), outline=(240, 240, 240), width=4)
+    draw.ellipse((60, 520, 80, 540), outline=(240, 240, 240), width=3)
 
-    # Кольцо уровня
-    ring_center = (640, 235)
-    ring_radius = 112
-    draw.ellipse((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), fill=(26, 30, 40), outline=(44, 49, 58), width=12)
-    draw.arc((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), start=-90, end=-90 + int(360 * progress), fill=(76, 88, 255), width=12)
-
-    # Аватар и номер уровня
+    # Центральная часть: аватар + круг прогресса + уровень
+    ring_center = (640, 238)
+    ring_radius = 96
+    draw.ellipse((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), fill=(33, 35, 40), outline=(26, 28, 32), width=6)
+    draw.arc((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), start=-90, end=-90 + int(360 * progress), fill=(67, 81, 255), width=10)
     img.paste(avatar, (avatar_x, avatar_y), mask)
-    draw.ellipse((710, 115, 790, 195), fill=(228, 230, 235))
-    draw.text((732, 132), str(level), font=font_sub, fill=(55, 58, 66))
+    draw.ellipse((697, 150, 782, 235), fill=(225, 226, 230))
+    draw.text((721, 173), str(level), font=font_sub, fill=(67, 69, 73))
 
-    # Ник + кастомная роль + групповая роль
-    draw.text((505, 345), name, font=font_name, fill=(241, 245, 255))
-    draw.text((588, 405), "ЗГС АП", font=font_sub, fill=(238, 241, 255))
-    draw.rounded_rectangle((375, 475, 915, 535), radius=16, outline=(84, 200, 94), width=3, fill=(39, 44, 53))
-    draw.text((495, 485), group_role, font=font_text, fill=(241, 245, 255))
-    draw.rounded_rectangle((450, 600, 850, 610), radius=5, fill=(73, 83, 255))
+    # Микро-карточки
+    draw.rounded_rectangle((350, 245, 490, 320), radius=12, fill=(44, 47, 54))
+    draw.text((390, 252), "ЛИГА", font=font_micro, fill=(240, 240, 240))
+    draw.text((372, 286), "Бронза", font=font_sub, fill=(240, 240, 240))
+    draw.line((350, 255, 350, 312), fill=(67, 81, 255), width=5)
 
-    # Мини-блоки лига и опыт
-    draw.rounded_rectangle((345, 245, 490, 320), radius=12, fill=(34, 38, 45))
-    draw.text((385, 252), "ЛИГА", font=font_micro, fill=(245, 248, 255))
-    draw.text((367, 286), "Бронза", font=font_sub, fill=(245, 248, 255))
-    draw.rounded_rectangle((800, 245, 945, 320), radius=12, fill=(34, 38, 45))
-    draw.text((836, 252), "ОПЫТ", font=font_micro, fill=(245, 248, 255))
-    draw.text((840, 286), str(xp), font=font_sub, fill=(245, 248, 255))
+    draw.rounded_rectangle((790, 245, 930, 320), radius=12, fill=(44, 47, 54))
+    draw.text((825, 252), "ОПЫТ", font=font_micro, fill=(240, 240, 240))
+    draw.text((836, 286), str(xp), font=font_sub, fill=(240, 240, 240))
+    draw.line((930, 255, 930, 312), fill=(67, 81, 255), width=5)
 
-    # Правый блок премиума
-    draw.rounded_rectangle((985, 130, 1250, 650), radius=30, fill=(24, 28, 42))
-    draw.text((1035, 185), "Премиум", font=font_name, fill=(112, 115, 125))
-    _draw_crown(draw, 1048, 292, 150, 120, fill=(90, 95, 106))
-    draw.text((1000, 480), "АКТИВЕН" if premium == "Да" else "ОТСУТСТВУЕТ", font=font_sub, fill=(112, 115, 125))
+    # Имя и роль
+    draw.text((505, 362), name, font=font_name, fill=(244, 245, 247))
+    draw.rounded_rectangle((358, 560, 920, 610), radius=14, outline=(114, 118, 124), width=3, fill=(31, 33, 38))
+    draw.text((470, 568), group_role, font=font_text, fill=(241, 243, 246))
+    draw.rounded_rectangle((455, 640, 823, 648), radius=4, fill=(67, 81, 255))
 
-    # Звезды по уровню
-    if level >= 10:
-        stars = min(10, 1 + level // 15)
-        for _ in range(stars):
-            sx = random.randint(20, width - 20)
-            sy = random.randint(20, height - 20)
-            size = random.randint(7, 15)
-            _draw_star(draw, sx, sy, size=size)
+    # Правый блок премиум
+    draw.text((1020, 185), "Премиум", font=font_name, fill=(112, 115, 122))
+    _draw_crown(draw, 1028, 310, 165, 120, fill=(96, 100, 110))
+    draw.text((987, 510), "АКТИВЕН" if premium == "Да" else "ОТСУТСТВУЕТ", font=font_sub, fill=(112, 115, 122))
+
+    # Звездочки декора
+    stars = 2 + min(8, level // 20)
+    for _ in range(stars):
+        sx = random.randint(20, width - 20)
+        sy = random.randint(20, height - 20)
+        size = random.randint(8, 14)
+        _draw_star(draw, sx, sy, size=size, color=(255, 247, 190))
 
     try:
         img.save(path, format="PNG")
