@@ -146,6 +146,7 @@ def load_profile(user_id: str) -> dict:
         "reg_date": datetime.now(MSK_TZ).strftime("%Y-%m-%d"),
         "display_name": None,
         "display_name_updated_at": 0,
+        "updated_at": now_ts(),
     }
     path = get_profile_path(user_id)
     if not os.path.exists(path):
@@ -156,6 +157,9 @@ def load_profile(user_id: str) -> dict:
     for key, value in default.items():
         profile.setdefault(key, value)
 
+    if not profile.get("reg_date") or str(profile.get("reg_date")).lower() in {"неизвестно", "unknown", "none"}:
+        profile["reg_date"] = datetime.now(MSK_TZ).strftime("%Y-%m-%d")
+
     if is_owner(user_id):
         profile["role"] = "owner"
 
@@ -165,6 +169,7 @@ def load_profile(user_id: str) -> dict:
 def save_profile(user_id: str, profile: dict):
     if is_owner(user_id):
         profile["role"] = "owner"
+    profile["updated_at"] = now_ts()
     save_json(get_profile_path(user_id), profile)
 
 
@@ -253,8 +258,6 @@ def extract_vk_id(raw_value: str) -> str | None:
         return numeric.group(0)
     return None
 
-    save_bot_state(state)
-    return state
 
 def get_sender_id(event) -> str | None:
     raw_user = getattr(event, "user_id", None)
@@ -843,6 +846,10 @@ def run_vk_bot():
             profile = load_profile(user_id)
             admin = is_admin(profile, user_id)
 
+            # Считаем все входящие сообщения пользователя, даже если бот молчит.
+            profile["messages"] = int(profile.get("messages", 0)) + 1
+            save_profile(user_id, profile)
+
             cmd, args = parse_command(text)
             is_command = cmd.startswith("/")
 
@@ -891,7 +898,12 @@ def run_vk_bot():
 
             if cmd == "/profile":
                 cached_path = f"{IMAGE_DIR}/profile_{user_id}.png"
-                cached_fresh = os.path.exists(cached_path) and (time.time() - os.path.getmtime(cached_path) < PROFILE_CACHE_TTL)
+                profile_updated_at = int(profile.get("updated_at", 0))
+                cached_fresh = (
+                    os.path.exists(cached_path)
+                    and (time.time() - os.path.getmtime(cached_path) < PROFILE_CACHE_TTL)
+                    and int(os.path.getmtime(cached_path)) >= profile_updated_at
+                )
 
                 if cached_fresh:
                     send_photo(vk_session, peer_id, cached_path)
@@ -1039,7 +1051,6 @@ def run_vk_bot():
 
             # small passive progression
             profile = load_profile(user_id)
-            profile["messages"] += 1
             give_reward(profile, coins=random.randint(0, 1), xp=random.randint(1, 2))
             save_profile(user_id, profile)
 
