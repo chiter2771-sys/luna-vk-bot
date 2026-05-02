@@ -710,6 +710,9 @@ def handle_active_game(profile: dict, text: str) -> str | None:
 
     return None
 
+def start_number_game(profile: dict) -> str:
+    profile["game_state"] = {"type": "guess_number", "number": random.randint(1, 100), "attempts": 0}
+    return "🎯 Я загадала число от 1 до 100. Пиши число."
 
 def play_dice(profile: dict) -> str:
     user = random.randint(1, 6)
