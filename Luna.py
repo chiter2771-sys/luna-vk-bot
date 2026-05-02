@@ -272,8 +272,15 @@ def get_sender_id(event) -> str | None:
     if from_id:
         return str(from_id)
 
-    return None
+    if enough_msgs and enough_time and random.random() < 0.35:
+        current = state.get("mood", "playful")
+        state["mood"] = random.choice([m for m in MOODS if m != current])
+        state["mood_since"] = now_ts()
+        state["last_shift"] = now_ts()
+        state["message_counter"] = 0
 
+    save_bot_state(state)
+    return state
 
 def build_prompt(user_id: str, profile: dict, mood_key: str, peer_id: int) -> str:
     mood = MOODS.get(mood_key, MOODS["playful"])
@@ -803,6 +810,9 @@ async def get_ai_response(user_id: str, peer_id: int, message: str) -> str:
 
     return await _call_openrouter_with_messages(user_id, peer_id, message, mood_key, messages)
 
+def start_number_game(profile: dict) -> str:
+    profile["game_state"] = {"type": "guess_number", "number": random.randint(1, 100), "attempts": 0}
+    return "🎯 Я загадала число от 1 до 100. Пиши число."
 
 async def get_ai_response_with_photo(user_id: str, peer_id: int, text: str, photo_urls: list[str]) -> str:
     if not OPENROUTER_API_KEY:
