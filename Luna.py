@@ -183,14 +183,17 @@ def save_memory(user_id: str, role: str, content: str, peer_id: int):
     save_json(get_memory_path(user_id), mem[-80:])
 
 
-def compact_memory_for_llm(memory: list) -> list:
+def compact_memory_for_llm(memory: list, peer_id: int | None = None) -> list:
     out = []
-    for item in memory[-20:]:
+    for item in memory[-40:]:
         role = item.get("role")
         text = (item.get("content") or "").strip()
+        item_peer = item.get("peer_id")
+        if peer_id is not None and item_peer != peer_id:
+            continue
         if role in {"user", "assistant"} and text:
             out.append({"role": role, "content": text})
-    return out
+    return out[-24:]
 
 
 def give_reward(profile: dict, coins: int = 0, xp: int = 0) -> str | None:
@@ -269,8 +272,15 @@ def get_sender_id(event) -> str | None:
     if from_id:
         return str(from_id)
 
-    return None
+    if enough_msgs and enough_time and random.random() < 0.35:
+        current = state.get("mood", "playful")
+        state["mood"] = random.choice([m for m in MOODS if m != current])
+        state["mood_since"] = now_ts()
+        state["last_shift"] = now_ts()
+        state["message_counter"] = 0
 
+    save_bot_state(state)
+    return state
 
 def build_prompt(user_id: str, profile: dict, mood_key: str, peer_id: int) -> str:
     mood = MOODS.get(mood_key, MOODS["playful"])
@@ -641,6 +651,26 @@ def is_invocation(text: str, group_id: int) -> bool:
     return any(p in lowered for p in mention_patterns)
 
 
+def extract_photo_urls(attachments: list) -> list[str]:
+    urls: list[str] = []
+    for item in attachments:
+        if not isinstance(item, dict) or item.get("type") != "photo":
+            continue
+        photo = item.get("photo", {})
+        sizes = photo.get("sizes") or []
+        if sizes:
+            best = sorted(sizes, key=lambda x: (x.get("height", 0) * x.get("width", 0)), reverse=True)[0]
+            url = best.get("url")
+            if url:
+                urls.append(url)
+                continue
+        for key in ("photo_2560", "photo_1280", "photo_807", "photo_604"):
+            if photo.get(key):
+                urls.append(photo[key])
+                break
+    return urls
+
+
 def should_respond_in_chat(peer_id: int, user_id: str, text: str, group_id: int, is_command: bool) -> bool:
     # ЛС: отвечаем всегда
     if peer_id < 2_000_000_000:
@@ -710,9 +740,6 @@ def handle_active_game(profile: dict, text: str) -> str | None:
 
     return None
 
-def start_number_game(profile: dict) -> str:
-    profile["game_state"] = {"type": "guess_number", "number": random.randint(1, 100), "attempts": 0}
-    return "🎯 Я загадала число от 1 до 100. Пиши число."
 
 def play_dice(profile: dict) -> str:
     user = random.randint(1, 6)
@@ -778,8 +805,42 @@ async def get_ai_response(user_id: str, peer_id: int, message: str) -> str:
     mood_key = update_global_mood().get("mood", "playful")
 
     messages = [{"role": "system", "content": build_prompt(user_id, profile, mood_key, peer_id)}]
-    messages.extend(compact_memory_for_llm(load_memory(user_id)))
+    messages.extend(compact_memory_for_llm(load_memory(user_id), peer_id=peer_id))
     messages.append({"role": "user", "content": message})
+
+    return await _call_openrouter_with_messages(user_id, peer_id, message, mood_key, messages)
+
+def start_number_game(profile: dict) -> str:
+    profile["game_state"] = {"type": "guess_number", "number": random.randint(1, 100), "attempts": 0}
+    return "🎯 Я загадала число от 1 до 100. Пиши число."
+
+async def get_ai_response_with_photo(user_id: str, peer_id: int, text: str, photo_urls: list[str]) -> str:
+    if not OPENROUTER_API_KEY:
+        return "⚠️ OPENROUTER_API_KEY не задан."
+    if not OPENROUTER_API_KEY.startswith("sk-or-v1-"):
+        return "⚠️ OPENROUTER_API_KEY некорректный (ожидается sk-or-v1-...)."
+
+    now = now_ts()
+    if AI_FAILURE_UNTIL > now:
+        return f"⚠️ ИИ временно недоступен: {AI_FAILURE_REASON}. Повтори через {AI_FAILURE_UNTIL - now} сек."
+
+    profile = load_profile(user_id)
+    mood_key = update_global_mood().get("mood", "playful")
+
+    prompt_text = text or "Опиши фото и ответь по-дружески, как Луна."
+    content_parts = [{"type": "text", "text": prompt_text}]
+    for url in photo_urls[:2]:
+        content_parts.append({"type": "image_url", "image_url": {"url": url}})
+
+    messages = [{"role": "system", "content": build_prompt(user_id, profile, mood_key, peer_id)}]
+    messages.extend(compact_memory_for_llm(load_memory(user_id), peer_id=peer_id))
+    messages.append({"role": "user", "content": content_parts})
+
+    return await _call_openrouter_with_messages(user_id, peer_id, prompt_text, mood_key, messages)
+
+
+async def _call_openrouter_with_messages(user_id: str, peer_id: int, source_message: str, mood_key: str, messages: list) -> str:
+    global AI_FAILURE_UNTIL, AI_FAILURE_REASON
 
     timeout = aiohttp.ClientTimeout(total=45)
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -812,7 +873,7 @@ async def get_ai_response(user_id: str, peer_id: int, message: str) -> str:
                             if random.random() < 0.28:
                                 text += f" {random.choice(MOODS[mood_key]['emoji'])}"
 
-                            save_memory(user_id, "user", message, peer_id)
+                            save_memory(user_id, "user", source_message, peer_id)
                             save_memory(user_id, "assistant", text, peer_id)
                             AI_FAILURE_UNTIL = 0
                             AI_FAILURE_REASON = ""
@@ -898,6 +959,16 @@ def run_vk_bot():
 
             if not text:
                 continue
+
+            if has_photo and text:
+                photo_urls = extract_photo_urls(attachments)
+                if photo_urls:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    response = loop.run_until_complete(get_ai_response_with_photo(user_id, peer_id, text, photo_urls))
+                    loop.close()
+                    vk.messages.send(peer_id=peer_id, message=response, random_id=random_id())
+                    continue
 
             cmd, args = parse_command(text)
             is_command = cmd.startswith("/")
