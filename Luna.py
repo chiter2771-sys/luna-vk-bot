@@ -471,22 +471,22 @@ def _draw_crown(draw: ImageDraw.ImageDraw, x: int, y: int, w: int, h: int, fill=
 
 
 def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
-    # Компактная карточка 16:9 как в референсе (не огромная в чате).
-    width, height = 960, 540
+    # Компактная карточка, близкая к референсу (читабельно в чате VK).
+    width, height = 840, 472
     scale = width / 1280
     s = lambda x: int(x * scale)
     path = f"{IMAGE_DIR}/profile_{user_id}.png"
 
     img = Image.new("RGB", (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(img)
-    font_title = _safe_font(s(72), bold=True)
-    font_name = _safe_font(s(50), bold=True)
-    font_sub = _safe_font(s(36), bold=True)
-    font_text = _safe_font(s(42))
-    font_micro = _safe_font(s(24))
+    font_title = _safe_font(s(66), bold=True)
+    font_name = _safe_font(s(38), bold=True)
+    font_sub = _safe_font(s(30), bold=True)
+    font_text = _safe_font(s(28), bold=True)
+    font_micro = _safe_font(s(20))
 
-    avatar_size = s(180)
-    avatar_x, avatar_y = s(550), s(145)
+    avatar_size = s(170)
+    avatar_x, avatar_y = s(555), s(150)
     avatar_blob = get_vk_avatar_bytes(vk, user_id)
 
     avatar = Image.new("RGB", (avatar_size, avatar_size), (64, 71, 95))
@@ -530,18 +530,18 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
     premium_label = "Премиум" if cyr_ok else "Premium"
     premium_value = "АКТИВЕН" if premium == "Да" else ("ОТСУТСТВУЕТ" if cyr_ok else "MISSING")
 
-    draw.rectangle((0, 0, width, height), fill=(46, 46, 46))
+    draw.rectangle((0, 0, width, height), fill=(44, 44, 44))
 
     # Блоки
     left_box = (s(28), s(132), s(302), s(648))
     center_box = (s(335), s(230), s(945), s(648))
     right_box = (s(968), s(132), s(1248), s(648))
-    draw.rounded_rectangle(left_box, radius=30, fill=(29, 31, 35))
-    draw.rounded_rectangle(center_box, radius=30, fill=(31, 33, 38))
-    draw.rounded_rectangle(right_box, radius=30, fill=(29, 31, 35))
+    draw.rounded_rectangle(left_box, radius=s(30), fill=(27, 29, 33))
+    draw.rounded_rectangle(center_box, radius=s(30), fill=(30, 32, 36))
+    draw.rounded_rectangle(right_box, radius=s(30), fill=(27, 29, 33))
 
     # Заголовок
-    draw.text((s(438), s(40)), label_stats, font=font_title, fill=(244, 245, 247))
+    draw.text((s(438), s(40)), label_stats, font=font_title, fill=(245, 246, 248))
 
     # Левый столб
     stats_lines = [
@@ -550,11 +550,11 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
         (label_last, datetime.now(MSK_TZ).strftime("%d.%m.%Y"), (240, 240, 240)),
         (label_rep, f"+{profile.get('wins', 0)} (#{max(1, 2500 - profile.get('wins', 0))})", (175, 216, 160)),
     ]
-    y = s(170)
+    y = s(168)
     for title, value, color in stats_lines:
         draw.text((s(108), y), title, font=font_micro, fill=(134, 137, 144))
-        draw.text((s(108), y + s(34)), value, font=font_sub, fill=color)
-        y += s(115)
+        draw.text((s(108), y + s(30)), value, font=font_sub, fill=color)
+        y += s(108)
 
     # Простые иконки слева
     draw.ellipse((s(48), s(178), s(92), s(222)), outline=(240, 240, 240), width=3)
@@ -569,12 +569,12 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
 
     # Центральная часть: аватар + круг прогресса + уровень
     ring_center = (s(640), s(238))
-    ring_radius = s(96)
-    draw.ellipse((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), fill=(33, 35, 40), outline=(26, 28, 32), width=6)
-    draw.arc((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), start=-90, end=-90 + int(360 * progress), fill=(67, 81, 255), width=10)
+    ring_radius = s(94)
+    draw.ellipse((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), fill=(32, 34, 38), outline=(22, 24, 28), width=s(6))
+    draw.arc((ring_center[0] - ring_radius, ring_center[1] - ring_radius, ring_center[0] + ring_radius, ring_center[1] + ring_radius), start=-90, end=-90 + int(360 * progress), fill=(70, 84, 255), width=s(10))
     img.paste(avatar, (avatar_x, avatar_y), mask)
-    draw.ellipse((s(697), s(150), s(782), s(235)), fill=(225, 226, 230))
-    draw.text((s(721), s(173)), str(level), font=font_sub, fill=(67, 69, 73))
+    draw.ellipse((s(697), s(150), s(782), s(235)), fill=(223, 225, 228))
+    draw.text((s(721), s(173)), str(level), font=font_sub, fill=(66, 68, 72))
 
     # Микро-карточки
     draw.rounded_rectangle((s(350), s(245), s(490), s(320)), radius=10, fill=(44, 47, 54))
@@ -589,8 +589,8 @@ def generate_profile_image(user_id: str, profile: dict, vk) -> str | None:
 
     # Имя и роль
     draw.text((s(505), s(362)), name, font=font_name, fill=(244, 245, 247))
-    draw.rounded_rectangle((s(358), s(560), s(920), s(610)), radius=10, outline=(114, 118, 124), width=2, fill=(31, 33, 38))
-    draw.text((s(470), s(568)), group_role, font=font_text, fill=(241, 243, 246))
+    draw.rounded_rectangle((s(358), s(560), s(920), s(610)), radius=s(12), outline=(114, 118, 124), width=2, fill=(31, 33, 38))
+    draw.text((s(452), s(567)), group_role, font=font_text, fill=(241, 243, 246))
     draw.rounded_rectangle((s(455), s(640), s(823), s(648)), radius=3, fill=(67, 81, 255))
 
     # Правый блок премиум
@@ -710,37 +710,9 @@ def handle_active_game(profile: dict, text: str) -> str | None:
 
     return None
 
-    if state.get("type") == "guess_number":
-        try:
-            guess = int(text)
-        except ValueError:
-            return "Напиши число от 1 до 100."
-
-        state["attempts"] += 1
-        hidden = state["number"]
-        if guess == hidden:
-            profile["game_state"] = None
-            profile["games_played"] += 1
-            profile["wins"] += 1
-            coin = random.randint(5, 10)
-            xp = random.randint(4, 8)
-            up = give_reward(profile, coins=coin, xp=xp)
-            return f"✅ Угадал за {state['attempts']} попыток! +{coin} монет, +{xp} XP\n{up or ''}".strip()
-
-        return "⬆️ Больше" if guess < hidden else "⬇️ Меньше"
-
-    if state.get("type") == "quiz":
-        answer = (text or "").strip().lower()
-        ok = answer == state.get("answer")
-        profile["game_state"] = None
-        profile["games_played"] += 1
-        if ok:
-            profile["wins"] += 1
-            coin = random.randint(4, 8)
-            xp = random.randint(4, 7)
-            up = give_reward(profile, coins=coin, xp=xp)
-            return f"🧠 Верно! +{coin} монет, +{xp} XP\n{up or ''}".strip()
-        return f"❌ Неверно. Правильный ответ: {state.get('answer')}"
+def start_number_game(profile: dict) -> str:
+    profile["game_state"] = {"type": "guess_number", "number": random.randint(1, 100), "attempts": 0}
+    return "🎯 Я загадала число от 1 до 100. Пиши число."
 
 def play_dice(profile: dict) -> str:
     user = random.randint(1, 6)
@@ -895,8 +867,9 @@ def run_vk_bot():
                 continue
 
             text = (message_obj.get("text") or "").strip()
-            if not text:
-                continue
+            attachments = message_obj.get("attachments") or []
+            has_sticker = any(item.get("type") == "sticker" for item in attachments if isinstance(item, dict))
+            has_photo = any(item.get("type") == "photo" for item in attachments if isinstance(item, dict))
 
             peer_id = message_obj.get("peer_id")
             if not peer_id:
@@ -907,6 +880,24 @@ def run_vk_bot():
             # Считаем все входящие сообщения пользователя, даже если бот молчит.
             profile["messages"] = int(profile.get("messages", 0)) + 1
             save_profile(user_id, profile)
+
+            if not text and (has_sticker or has_photo):
+                if has_sticker:
+                    vk.messages.send(
+                        peer_id=peer_id,
+                        message="😄 Стикер топ! Если хочешь, позови меня по имени: «Луна» или «Луночка».",
+                        random_id=random_id(),
+                    )
+                elif has_photo:
+                    vk.messages.send(
+                        peer_id=peer_id,
+                        message="📷 Фото вижу. Могу обсудить его, если добавишь вопрос текстом и позовёшь меня: «Луна».",
+                        random_id=random_id(),
+                    )
+                continue
+
+            if not text:
+                continue
 
             cmd, args = parse_command(text)
             is_command = cmd.startswith("/")
